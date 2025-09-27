@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>税务师学习平台 - 本地版</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- 加载屏幕 -->
+        <div id="loading-screen" class="screen">
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <h2>税务师学习平台</h2>
+                <p>正在初始化应用...</p>
+            </div>
+        </div>
+
+        <!-- 认证屏幕 -->
+        <div id="auth-screen" class="screen hidden">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <h1>税务师学习平台</h1>
+                    <p>专业的税务师考试学习系统</p>
+                </div>
+                
+                <!-- 登录表单 -->
+                <div class="auth-form" id="login-form">
+                    <h2>登录</h2>
+                    <form onsubmit="return false;">
+                        <div class="form-group">
+                            <label for="login-email">邮箱</label>
+                            <input type="email" id="login-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="login-password">密码</label>
+                            <input type="password" id="login-password" required>
+                        </div>
+                        <button type="button" id="login-btn" class="btn-primary">登录</button>
+                    </form>
+                    <div class="auth-links">
+                        <a href="#" onclick="app.showForgotPassword()">忘记密码？</a>
+                        <a href="#" onclick="app.showRegisterForm()">注册新账户</a>
+                    </div>
+                </div>
+
+                <!-- 注册表单 -->
+                <div class="auth-form hidden" id="register-form">
+                    <h2>注册</h2>
+                    <form onsubmit="return false;">
+                        <div class="form-group">
+                            <label for="register-email">邮箱</label>
+                            <input type="email" id="register-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-nickname">昵称</label>
+                            <input type="text" id="register-nickname">
+                        </div>
+                        <div class="form-group">
+                            <label for="register-password">密码</label>
+                            <input type="password" id="register-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-confirm-password">确认密码</label>
+                            <input type="password" id="register-confirm-password" required>
+                        </div>
+                        <button type="button" id="register-btn" class="btn-primary">注册</button>
+                    </form>
+                    <div class="auth-links">
+                        <a href="#" onclick="app.showLoginForm()">已有账户？登录</a>
+                    </div>
+                </div>
+
+                <!-- 忘记密码表单 -->
+                <div class="auth-form hidden" id="forgot-form">
+                    <h2>忘记密码</h2>
+                    <form onsubmit="return false;">
+                        <div class="form-group">
+                            <label for="forgot-email">邮箱</label>
+                            <input type="email" id="forgot-email" required>
+                        </div>
+                        <button type="button" id="forgot-password-btn" class="btn-primary">重置密码</button>
+                    </form>
+                    <div class="auth-links">
+                        <a href="#" onclick="app.showLoginForm()">返回登录</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主界面 -->
+        <div id="home-screen" class="screen hidden">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>税务师学习平台</span>
+                </div>
+                <div class="nav-menu">
+                    <button class="nav-btn" onclick="app.showHomeScreen()">
+                        <i class="fas fa-home"></i>
+                        <span>首页</span>
+                    </button>
+                    <button class="nav-btn" onclick="app.showDeckScreen()">
+                        <i class="fas fa-book"></i>
+                        <span>科目</span>
+                    </button>
+                    <button class="nav-btn" onclick="app.showDeckManagementScreen()">
+                        <i class="fas fa-cog"></i>
+                        <span>管理</span>
+                    </button>
+                    <button class="nav-btn" onclick="app.showProfileScreen()">
+                        <i class="fas fa-user"></i>
+                        <span>我的</span>
+                    </button>
+                </div>
+                <div class="nav-user">
+                    <img id="user-avatar" src="" alt="用户头像" class="user-avatar">
+                    <span id="user-welcome">欢迎</span>
+                    <button class="logout-btn" onclick="app.handleLogout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <!-- 用户统计 -->
+                <section class="stats-section">
+                    <h2>学习统计</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <i class="fas fa-clock"></i>
+                            <div class="stat-content">
+                                <h3 id="total-study-time">0</h3>
+                                <p>总学习时间</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-cards-blank"></i>
+                            <div class="stat-content">
+                                <h3 id="total-cards-studied">0</h3>
+                                <p>学习卡片</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-fire"></i>
+                            <div class="stat-content">
+                                <h3 id="current-streak">0天</h3>
+                                <p>连续学习</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-bookmark"></i>
+                            <div class="stat-content">
+                                <h3 id="total-decks">0</h3>
+                                <p>我的科目</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 最近学习 -->
+                <section class="recent-section">
+                    <h2>最近学习</h2>
+                    <div id="recent-study" class="recent-study-container">
+                        <p class="text-gray-500">还没有学习记录</p>
+                    </div>
+                </section>
+
+                <!-- 推荐科目 -->
+                <section class="recommended-section">
+                    <div class="section-header">
+                        <h2>推荐科目</h2>
+                        <a href="#" onclick="app.showDeckScreen()">查看全部</a>
+                    </div>
+                    <div id="recommended-decks" class="decks-grid">
+                        <p class="text-gray-500">暂无推荐科目</p>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- 科目选择界面 -->
+        <div id="deck-screen" class="screen hidden">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <i class="fas fa-arrow-left" onclick="app.showHomeScreen()"></i>
+                    <span>科目选择</span>
+                </div>
+                <div class="nav-actions">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="搜索科目...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <button class="btn-primary" onclick="app.showCreateDeckModal()">
+                        <i class="fas fa-plus"></i>
+                        新建科目
+                    </button>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <!-- 搜索结果 -->
+                <div id="search-results" class="search-results hidden">
+                    <h3>搜索结果</h3>
+                    <div id="search-results-list"></div>
+                </div>
+
+                <!-- 科目列表 -->
+                <div id="deck-list" class="deck-list">
+                    <div class="empty-state">
+                        <i class="fas fa-book-open"></i>
+                        <h3>还没有任何科目</h3>
+                        <p>点击"新建科目"创建你的第一个学习科目</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- 学习界面 -->
+        <div id="learning-screen" class="screen hidden">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <i class="fas fa-arrow-left" onclick="app.showDeckScreen()"></i>
+                    <span id="learning-deck-name">学习中</span>
+                </div>
+                <div class="nav-actions">
+                    <div class="learning-progress">
+                        <span>进度: <span id="learning-progress-text">0/0</span></span>
+                        <div class="progress-bar">
+                            <div id="learning-progress-bar" class="progress-fill"></div>
+                        </div>
+                    </div>
+                    <button class="btn-secondary" onclick="app.showDeckScreen()">
+                        <i class="fas fa-times"></i>
+                        退出学习
+                    </button>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <div id="learning-content" class="learning-content">
+                    <!-- 学习卡片 -->
+                    <div id="study-card" class="study-card">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-header">
+                                    <span class="card-type" id="card-type">问答</span>
+                                    <span class="card-difficulty" id="card-difficulty">中级</span>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-question" id="card-question">
+                                        <!-- 问题内容 -->
+                                    </div>
+                                </div>
+                                <div class="card-actions">
+                                    <button id="card-flip-btn" class="btn-primary" onclick="app.flipCard()">
+                                        <i class="fas fa-sync-alt"></i>
+                                        查看答案
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-back">
+                                <div class="card-header">
+                                    <span class="card-type" id="card-type-back">问答</span>
+                                    <span class="card-difficulty" id="card-difficulty-back">中级</span>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-answer" id="card-answer">
+                                        <!-- 答案内容 -->
+                                    </div>
+                                </div>
+                                <div class="card-actions">
+                                    <button id="answer-wrong-btn" class="btn-danger" onclick="app.handleAnswer(false)">
+                                        <i class="fas fa-times"></i>
+                                        记不住
+                                    </button>
+                                    <button id="answer-correct-btn" class="btn-success" onclick="app.handleAnswer(true)">
+                                        <i class="fas fa-check"></i>
+                                        记住了
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- 科目管理界面 -->
+        <div id="deck-management-screen" class="screen hidden">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <i class="fas fa-arrow-left" onclick="app.showHomeScreen()"></i>
+                    <span>科目管理</span>
+                </div>
+                <div class="nav-actions">
+                    <button class="btn-primary" onclick="app.showCreateDeckModal()">
+                        <i class="fas fa-plus"></i>
+                        新建科目
+                    </button>
+                    <button class="btn-secondary" onclick="app.exportData()">
+                        <i class="fas fa-download"></i>
+                        导出数据
+                    </button>
+                    <label class="btn-secondary">
+                        <i class="fas fa-upload"></i>
+                        导入数据
+                        <input type="file" accept=".json" onchange="app.importData(event)" style="display: none;">
+                    </label>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <div id="user-decks-list" class="deck-list">
+                    <!-- 用户科目列表 -->
+                </div>
+            </main>
+        </div>
+
+        <!-- 个人资料界面 -->
+        <div id="profile-screen" class="screen hidden">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <i class="fas fa-arrow-left" onclick="app.showHomeScreen()"></i>
+                    <span>个人资料</span>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <div class="profile-container">
+                    <div class="profile-header">
+                        <img id="profile-avatar" src="" alt="头像" class="profile-avatar">
+                        <div class="profile-info">
+                            <h2 id="profile-name">用户名</h2>
+                            <p id="profile-email">邮箱</p>
+                            <span id="profile-role" class="role-badge">学生</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <h3>个人信息</h3>
+                        <form id="profile-form" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="profile-nickname">昵称</label>
+                                <input type="text" id="profile-nickname">
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-email-display">邮箱</label>
+                                <input type="email" id="profile-email-display" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-role-display">角色</label>
+                                <input type="text" id="profile-role-display" readonly>
+                            </div>
+                            <button type="button" class="btn-primary" onclick="app.updateProfile()">
+                                <i class="fas fa-save"></i>
+                                保存修改
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="profile-section">
+                        <h3>安全设置</h3>
+                        <div class="security-actions">
+                            <button class="btn-secondary" onclick="app.showChangePasswordModal()">
+                                <i class="fas fa-key"></i>
+                                修改密码
+                            </button>
+                            <button class="btn-danger" onclick="app.showDeleteAccountModal()">
+                                <i class="fas fa-trash"></i>
+                                删除账户
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="profile-section">
+                        <h3>学习设置</h3>
+                        <form id="settings-form" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="theme-setting">主题</label>
+                                <select id="theme-setting">
+                                    <option value="light">浅色</option>
+                                    <option value="dark">深色</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="reminder-setting">学习提醒</label>
+                                <input type="checkbox" id="reminder-setting">
+                            </div>
+                            <button type="button" class="btn-primary" onclick="app.updateSettings()">
+                                <i class="fas fa-save"></i>
+                                保存设置
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 模态框 -->
+    <!-- 创建科目模态框 -->
+    <div id="deck-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>新建科目</h3>
+                <button class="close-modal" onclick="app.closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="deck-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="deck-name">科目名称 *</label>
+                        <input type="text" id="deck-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="deck-description">科目描述</label>
+                        <textarea id="deck-description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="deck-category">科目分类</label>
+                        <select id="deck-category">
+                            <option value="税务师考试">税务师考试</option>
+                            <option value="会计职称">会计职称</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deck-difficulty">难度等级</label>
+                        <select id="deck-difficulty">
+                            <option value="beginner">初级</option>
+                            <option value="intermediate">中级</option>
+                            <option value="advanced">高级</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deck-visibility">可见性</label>
+                        <select id="deck-visibility">
+                            <option value="private">私有</option>
+                            <option value="public">公开</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="app.closeModal()">取消</button>
+                        <button type="button" id="save-deck-btn" class="btn-primary">保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 卡片详情模态框 -->
+    <div id="card-detail-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>卡片详情</h3>
+                <button class="close-modal" onclick="app.closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card-detail-section">
+                    <h4>问题</h4>
+                    <div class="modal-question"></div>
+                </div>
+                <div class="card-detail-section">
+                    <h4>答案</h4>
+                    <div class="modal-answer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改密码模态框 -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>修改密码</h3>
+                <button class="close-modal" onclick="app.closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="change-password-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="current-password">当前密码</label>
+                        <input type="password" id="current-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">新密码</label>
+                        <input type="password" id="new-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-new-password">确认新密码</label>
+                        <input type="password" id="confirm-new-password" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="app.closeModal()">取消</button>
+                        <button type="button" class="btn-primary" onclick="app.changePassword()">修改密码</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除账户模态框 -->
+    <div id="delete-account-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>删除账户</h3>
+                <button class="close-modal" onclick="app.closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>删除账户将永久移除您的所有数据，包括：</p>
+                    <ul>
+                        <li>个人资料和设置</li>
+                        <li>创建的所有科目和卡片</li>
+                        <li>学习进度和统计</li>
+                        <li>书签和学习记录</li>
+                    </ul>
+                    <p>此操作无法撤销，请谨慎操作。</p>
+                </div>
+                <form id="delete-account-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="delete-password">请输入密码确认删除</label>
+                        <input type="password" id="delete-password" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="app.closeModal()">取消</button>
+                        <button type="button" class="btn-danger" onclick="app.deleteAccount()">删除账户</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示消息 -->
+    <div id="toast" class="toast"></div>
+
+    <!-- 脚本 -->
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
