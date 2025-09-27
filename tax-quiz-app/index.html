@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>税务师考试学习系统</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部状态栏 -->
+        <div class="status-bar">
+            <div class="user-info" id="userInfo">用户ID: --</div>
+            <div class="stats">
+                <span>今日复习: <strong id="todayCount">0</strong></span>
+                <span>总进度: <strong id="totalProgress">0%</strong></span>
+            </div>
+            <!-- 搜索功能 -->
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="搜索题目..." class="search-input">
+                <button onclick="toggleSearch()" class="search-btn">🔍</button>
+            </div>
+        </div>
+
+        <!-- 主应用区域 -->
+        <div class="main-content">
+            <!-- 搜索结果面板 -->
+            <div class="search-results" id="searchResults" style="display: none;">
+                <div class="search-header">
+                    <h3>搜索结果</h3>
+                    <button onclick="closeSearchResults()" class="close-btn">✕</button>
+                </div>
+                <div class="search-list" id="searchList"></div>
+            </div>
+
+            <!-- 3D卡片容器 -->
+            <div class="card-container" id="cardContainer">
+                <div class="card-inner" id="cardInner">
+                    <!-- 正面：问题 -->
+                    <div class="card-front">
+                        <div class="card-content">
+                            <div class="card-header">
+                                <span class="card-number" id="cardNumber">--</span>
+                                <span class="card-level" id="cardLevel">等级 0</span>
+                                <span class="card-type" id="cardType">问答</span>
+                            </div>
+                            <div class="question" id="questionText">正在加载问题...</div>
+                            
+                            <!-- 图片显示区域 -->
+                            <div class="card-image-container" id="cardImageContainer" style="display: none;">
+                                <img id="cardImage" class="card-image" alt="题目图片">
+                            </div>
+                            
+                            <!-- 输入题界面 -->
+                            <div class="type-input-container" id="typeInputContainer" style="display: none;">
+                                <input type="text" id="typeAnswerInput" class="type-input" placeholder="请输入答案...">
+                                <button onclick="submitTypeAnswer()" class="submit-btn">提交答案</button>
+                            </div>
+                            
+                            <div class="card-footer">
+                                <button class="flip-btn" id="flipBtn" onclick="flipCard()">查看答案</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 背面：答案和操作 -->
+                    <div class="card-back">
+                        <div class="card-content">
+                            <div class="card-header">
+                                <span class="card-number" id="cardNumberBack">--</span>
+                                <span class="card-level" id="cardLevelBack">等级 0</span>
+                                <span class="card-type" id="cardTypeBack">问答</span>
+                            </div>
+                            <div class="answer" id="answerText">正在加载答案...</div>
+                            
+                            <!-- 输入题结果反馈 -->
+                            <div class="type-feedback" id="typeFeedback" style="display: none;">
+                                <div class="feedback-header">答题结果</div>
+                                <div class="your-answer" id="yourAnswer"></div>
+                                <div class="correct-answer" id="correctAnswer"></div>
+                            </div>
+                            
+                            <div class="action-buttons">
+                                <button class="btn-forgot" onclick="handleAnswer(false)">忘记</button>
+                                <button class="btn-remember" onclick="handleAnswer(true)">记住</button>
+                            </div>
+                            <div class="card-footer">
+                                <button class="flip-btn" onclick="flipCard()">返回问题</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据管理面板 -->
+            <div class="data-management" id="dataManagement">
+                <div class="section-title">数据管理</div>
+                <div class="data-actions">
+                    <button onclick="importData()" class="import-btn">导入题库</button>
+                    <button onclick="exportData()" class="export-btn">导出数据</button>
+                    <button onclick="clearData()" class="clear-btn">清空数据</button>
+                    <button onclick="addImageToCard()" class="image-btn">添加图片</button>
+                </div>
+                <div class="file-input-container">
+                    <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileImport(event)">
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                </div>
+                <div class="data-stats" id="dataStats">
+                    <div>总题数: <span id="totalCards">0</span></div>
+                    <div>已掌握: <span id="masteredCards">0</span></div>
+                    <div>学习中: <span id="learningCards">0</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示信息 -->
+    <div class="toast" id="toast"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
