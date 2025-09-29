@@ -4,6 +4,117 @@
 const SUPABASE_URL = 'https://mrpomuidxsocqifpkvbc.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ycG9tdWlkeHNvY3FpZnBrdmJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNjc0MjQsImV4cCI6MjA3NDY0MzQyNH0.2HD9XQvXNaGgTnwtumcY1pejwN77BNJtUQ-TFDm40YQ';
 
+// 日志系统 - 只在开发环境输出
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+function logger(category, ...args) {
+    if (isDevelopment) {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] [${category}]`, ...args);
+    }
+}
+
+function errorLogger(category, error, context = '') {
+    // 错误总是输出，但生产环境会简化
+    const timestamp = new Date().toLocaleTimeString();
+    const message = context ? `${context}: ${error.message}` : error.message;
+
+    if (isDevelopment) {
+        console.error(`[${timestamp}] [${category}]`, error);
+    } else {
+        // 生产环境只输出关键错误信息
+        console.error(`[${category}] ${message}`);
+    }
+
+    // 可以在这里添加错误上报逻辑
+    // reportErrorToService(category, message, error.stack);
+}
+
+// 网络重试机制
+async function retryOperation(operation, maxRetries = 3, delay = 1000) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const result = await operation();
+            return result;
+        } catch (error) {
+            if (i === maxRetries - 1) {
+                throw error;
+            }
+            logger('NETWORK', `操作失败，第${i + 1}次重试...`, error.message);
+            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        }
+    }
+}
+
+// 加载状态管理
+function showLoader(text = '加载中...') {
+    const loader = document.getElementById('global-loader');
+    const loaderText = document.getElementById('loader-text');
+    if (loader && loaderText) {
+        loaderText.textContent = text;
+        loader.classList.remove('hidden');
+    }
+}
+
+function hideLoader() {
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        loader.classList.add('hidden');
+    }
+}
+
+// 网络状态管理
+let isOnline = navigator.onLine;
+
+function updateNetworkStatus() {
+    const statusElement = document.getElementById('network-status');
+    const textElement = document.getElementById('network-text');
+
+    if (!statusElement || !textElement) return;
+
+    isOnline = navigator.onLine;
+
+    if (isOnline) {
+        statusElement.className = 'network-status online show';
+        textElement.textContent = '在线';
+        setTimeout(() => {
+            statusElement.classList.remove('show');
+        }, 3000);
+    } else {
+        statusElement.className = 'network-status offline show';
+        textElement.textContent = '离线';
+    }
+}
+
+// 按钮加载状态
+function setButtonLoading(button, isLoading = true) {
+    if (!button) return;
+
+    if (isLoading) {
+        button.disabled = true;
+        button.classList.add('btn-loading');
+        button.dataset.originalText = button.textContent || button.innerHTML;
+    } else {
+        button.disabled = false;
+        button.classList.remove('btn-loading');
+        if (button.dataset.originalText) {
+            button.textContent = button.dataset.originalText;
+            delete button.dataset.originalText;
+        }
+    }
+}
+
+// 带加载状态的异步操作包装器
+async function withLoading(operation, loadingText = '处理中...') {
+    showLoader(loadingText);
+    try {
+        const result = await operation();
+        return result;
+    } finally {
+        hideLoader();
+    }
+}
+
 // 初始化Supabase客户端
 let supabase;
 
@@ -33,28 +144,32 @@ function showToast(message, type = 'info') {
 // 用户注册
 async function signUp(email, password, name) {
     try {
-        const { data, error } = await supabase.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-                data: {
-                    name: name
+        showLoading();
+        const { data } = await retryOperation(async () => {
+            const result = await supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: {
+                        name: name
+                    }
                 }
+            });
+
+            if (result.error) {
+                throw result.error;
             }
-        });
+            return result;
+        }, 3, 1500);
 
-        if (error) {
-            console.error('注册失败:', error);
-            showToast('注册失败: ' + error.message, 'error');
-            return false;
-        }
-
-        console.log('注册成功:', data);
+        logger('AUTH', '注册成功:', data);
         showToast('注册成功！请检查邮箱验证', 'success');
+        hideLoading();
         return true;
     } catch (error) {
-        console.error('注册异常:', error);
-        showToast('注册失败，请重试', 'error');
+        hideLoading();
+        errorLogger('AUTH', error, '注册失败');
+        showToast('注册失败，请检查网络连接', 'error');
         return false;
     }
 }
@@ -62,18 +177,20 @@ async function signUp(email, password, name) {
 // 用户登录
 async function signIn(email, password) {
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
+        showLoading();
+        const { data } = await retryOperation(async () => {
+            const result = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
 
-        if (error) {
-            console.error('登录失败:', error);
-            showToast('登录失败: ' + error.message, 'error');
-            return false;
-        }
+            if (result.error) {
+                throw result.error;
+            }
+            return result;
+        }, 3, 1500);
 
-        console.log('登录成功:', data);
+        logger('AUTH', '登录成功:', data);
         showToast('登录成功！', 'success');
 
         // 更新用户状态
@@ -86,10 +203,12 @@ async function signIn(email, password) {
             updateUserUI();
         }
 
+        hideLoading();
         return true;
     } catch (error) {
-        console.error('登录异常:', error);
-        showToast('登录失败，请重试', 'error');
+        hideLoading();
+        errorLogger('AUTH', error, '登录失败');
+        showToast('登录失败，请检查网络连接', 'error');
         return false;
     }
 }
@@ -97,19 +216,22 @@ async function signIn(email, password) {
 // 用户退出
 async function signOut() {
     try {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            console.error('退出失败:', error);
-            showToast('退出失败', 'error');
-            return false;
-        }
+        showLoading();
+        await retryOperation(async () => {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                throw error;
+            }
+        }, 3, 1000);
 
-        console.log('退出成功');
+        logger('AUTH', '退出成功');
         showToast('已退出登录', 'success');
+        hideLoading();
         return true;
     } catch (error) {
-        console.error('退出异常:', error);
-        showToast('退出失败，请重试', 'error');
+        hideLoading();
+        errorLogger('AUTH', error, '退出失败');
+        showToast('退出失败，请检查网络连接', 'error');
         return false;
     }
 }
@@ -117,20 +239,22 @@ async function signOut() {
 // 检查用户会话状态
 async function checkUserSession() {
     try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-            console.error('获取会话失败:', error);
-            return null;
-        }
+        const { data: { session } } = await retryOperation(async () => {
+            const result = await supabase.auth.getSession();
+            if (result.error) {
+                throw result.error;
+            }
+            return result;
+        }, 3, 1000);
 
         if (session) {
-            console.log('用户已登录:', session.user);
+            logger('AUTH', '用户已登录:', session.user);
             return session.user;
         }
 
         return null;
     } catch (error) {
-        console.error('检查会话异常:', error);
+        errorLogger('AUTH', error, '检查会话失败');
         return null;
     }
 }
@@ -304,7 +428,7 @@ async function handleSignOut() {
 function initializeSupabase() {
     if (typeof supabase !== 'undefined') {
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('Supabase客户端初始化成功');
+        logger('INIT', 'Supabase客户端初始化成功');
     } else {
         console.error('Supabase库未加载');
         showToast('数据库连接失败', 'error');
@@ -314,38 +438,46 @@ function initializeSupabase() {
 // 加载卡片数据
 async function loadCardData() {
     try {
+        showLoading('加载学习数据...');
+
         // 首先加载静态数据
         const response = await fetch('data.json');
         if (!response.ok) {
             throw new Error('无法加载卡片数据');
         }
         allCards = await response.json();
-        console.log('加载了', allCards.length, '张卡片');
-        
+        logger('DATA', `加载了${allCards.length}张卡片`);
+
         // 然后加载用户进度
         await loadUserProgress();
-        
+
         // 合并数据和进度
         mergeDataWithProgress();
+
+        hideLoading();
         
     } catch (error) {
-        console.error('加载卡片数据失败:', error);
-        showToast('加载卡片数据失败', 'error');
+        hideLoading();
+        errorLogger('DATA', error, '加载卡片数据失败');
+        showToast('加载卡片数据失败，请检查网络连接', 'error');
     }
 }
 
 // 加载用户进度
 async function loadUserProgress() {
     if (!supabase || !currentUser) return;
-    
+
     try {
-        const { data, error } = await supabase
-            .from('progress')
-            .select('*')
-            .eq('user_id', currentUser.id);
-            
+        const { data, error } = await retryOperation(async () => {
+            const result = await supabase
+                .from('progress')
+                .select('*')
+                .eq('user_id', currentUser.id);
+            return result;
+        }, 3, 1000);
+
         if (error) {
-            console.error('加载用户进度失败:', error);
+            errorLogger('DATABASE', error, '加载用户进度失败');
             return;
         }
         
@@ -355,10 +487,10 @@ async function loadUserProgress() {
             userProgress[progress.card_id] = progress;
         });
         
-        console.log('加载了用户进度:', Object.keys(userProgress).length, '张卡片');
-        
+        logger('DATA', `加载了用户进度:${Object.keys(userProgress).length}张卡片`);
+
     } catch (error) {
-        console.error('加载用户进度失败:', error);
+        errorLogger('DATABASE', error, '加载用户进度失败');
     }
 }
 
@@ -395,22 +527,23 @@ async function saveProgress(cardId, level) {
     try {
         const reviewDate = calculateNextReviewDate(level);
         
-        const { error } = await supabase
-            .from('progress')
-            .upsert({
-                card_id: cardId,
-                user_id: currentUser.id,
-                level: level,
-                review_date: reviewDate,
-                last_updated: new Date().toISOString()
-            }, {
-                onConflict: 'card_id,user_id'
-            });
-            
-        if (error) {
-            console.error('保存进度失败:', error);
-            return false;
-        }
+        await retryOperation(async () => {
+            const { error } = await supabase
+                .from('progress')
+                .upsert({
+                    card_id: cardId,
+                    user_id: currentUser.id,
+                    level: level,
+                    review_date: reviewDate,
+                    last_updated: new Date().toISOString()
+                }, {
+                    onConflict: 'card_id,user_id'
+                });
+
+            if (error) {
+                throw error;
+            }
+        }, 3, 1500);
         
         // 更新本地数据
         userProgress[cardId] = {
@@ -429,11 +562,12 @@ async function saveProgress(cardId, level) {
             card.lastUpdated = new Date().toISOString();
         }
         
-        console.log('进度保存成功:', cardId, '等级:', level);
+        logger('PROGRESS', `进度保存成功:${cardId} 等级:${level}`);
         return true;
         
     } catch (error) {
-        console.error('保存进度失败:', error);
+        errorLogger('DATABASE', error, '保存进度失败');
+        showToast('保存进度失败，请检查网络连接', 'error');
         return false;
     }
 }
@@ -502,7 +636,7 @@ function updateCardDisplay() {
 
 // 初始化应用
 async function initializeApp() {
-    console.log('税务师学习平台初始化中...');
+    logger('INIT', '税务师学习平台初始化中...');
 
     // 初始化Supabase
     initializeSupabase();
@@ -515,14 +649,14 @@ async function initializeApp() {
             email: user.email,
             name: user.user_metadata?.name || user.email?.split('@')[0] || '用户'
         };
-        console.log('用户已登录:', currentUser);
+        logger('AUTH', '用户已登录:', currentUser);
     } else {
         // 使用匿名用户
         currentUser = {
             id: getUserId(),
             name: '游客用户'
         };
-        console.log('使用匿名用户:', currentUser);
+        logger('AUTH', '使用匿名用户:', currentUser);
     }
 
     // 确保所有屏幕都是隐藏的
@@ -554,7 +688,29 @@ async function initializeApp() {
     // 更新用户UI状态
     updateUserUI();
 
-    console.log('应用初始化完成');
+        logger('INIT', '应用初始化完成');
+
+        // 初始化网络状态监听
+        initializeNetworkMonitoring();
+}
+
+// 初始化网络状态监听
+function initializeNetworkMonitoring() {
+    // 初始更新网络状态
+    updateNetworkStatus();
+
+    // 监听网络状态变化
+    window.addEventListener('online', () => {
+        logger('NETWORK', '网络已连接');
+        updateNetworkStatus();
+        showToast('网络已恢复', 'success');
+    });
+
+    window.addEventListener('offline', () => {
+        logger('NETWORK', '网络已断开');
+        updateNetworkStatus();
+        showToast('网络已断开，请检查连接', 'warning');
+    });
 }
 
 // 初始化事件监听
@@ -584,7 +740,7 @@ function initializeEventListeners() {
 
 // 显示指定屏幕
 function showScreen(screenName) {
-    console.log('切换到屏幕:', screenName);
+    logger('UI', `切换到屏幕:${screenName}`);
     
     try {
         // 隐藏所有屏幕
@@ -598,7 +754,7 @@ function showScreen(screenName) {
         if (targetScreen) {
             targetScreen.classList.remove('hidden');
             currentScreen = screenName;
-            console.log('屏幕切换成功:', screenName);
+            logger('UI', `屏幕切换成功:${screenName}`);
         } else {
             console.error('未找到屏幕:', screenName);
             showToast('页面不存在', 'error');
@@ -647,7 +803,10 @@ async function handleAnswer(isCorrect) {
     }
     
     // 保存进度
+    showLoading('保存进度...');
     const success = await saveProgress(currentCard.id, newLevel);
+    hideLoading();
+
     if (success) {
         // 延迟一下再显示下一张卡片
         setTimeout(() => {

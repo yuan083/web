@@ -11,7 +11,21 @@
 <body>
     <!-- 背景装饰 -->
     <div class="floating-hearts"></div>
-    
+
+    <!-- 全局加载指示器 -->
+    <div id="global-loader" class="global-loader hidden">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <p id="loader-text">加载中...</p>
+        </div>
+    </div>
+
+    <!-- 网络状态指示器 -->
+    <div id="network-status" class="network-status">
+        <i class="fas fa-wifi"></i>
+        <span id="network-text">在线</span>
+    </div>
+
     <div id="app">
         <!-- 加载屏幕 -->
         <div id="loading-screen" class="screen">
