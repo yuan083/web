@@ -1,0 +1,42 @@
+<!-- 科目选择界面 -->
+<div id="deck-screen" class="screen hidden">
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-arrow-left" onclick="showScreen('home')"></i>
+            <span>科目选择</span>
+        </div>
+        <div class="nav-actions">
+            <button class="btn-primary" onclick="showModal()">
+                <i class="fas fa-plus"></i>
+                新建科目
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div id="deck-list" class="deck-list">
+            <div class="deck-item" onclick="showScreen('learning')">
+                <div class="deck-header">
+                    <h3>税法基础</h3>
+                    <span class="deck-visibility">🌍</span>
+                </div>
+                <p class="deck-description">税务师考试基础知识点，包含税收法律、法规等核心内容</p>
+                <div class="deck-meta">
+                    <span class="deck-cards">50张卡片</span>
+                    <span class="deck-difficulty">初级</span>
+                </div>
+            </div>
+            <div class="deck-item" onclick="showScreen('learning')">
+                <div class="deck-header">
+                    <h3>会计实务</h3>
+                    <span class="deck-visibility">🔒</span>
+                </div>
+                <p class="deck-description">会计实际操作技能，财务报表分析等实用技能</p>
+                <div class="deck-meta">
+                    <span class="deck-cards">30张卡片</span>
+                    <span class="deck-difficulty">中级</span>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>

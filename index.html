@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>税务师学习平台 - 本地版</title>
-    <link rel="stylesheet" href="style.css">
+    <title>税务师学习平台 - 界面演示</title>
+    <link rel="stylesheet" href="assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7"></script>
 </head>
 <body>
+    <!-- 背景装饰 -->
+    <div class="floating-hearts"></div>
+    
     <div id="app">
         <!-- 加载屏幕 -->
         <div id="loading-screen" class="screen">
@@ -15,78 +19,6 @@
                 <div class="loading-spinner"></div>
                 <h2>税务师学习平台</h2>
                 <p>正在初始化应用...</p>
-            </div>
-        </div>
-
-        <!-- 认证屏幕 -->
-        <div id="auth-screen" class="screen hidden">
-            <div class="auth-container">
-                <div class="auth-header">
-                    <h1>税务师学习平台</h1>
-                    <p>专业的税务师考试学习系统</p>
-                </div>
-                
-                <!-- 登录表单 -->
-                <div class="auth-form" id="login-form">
-                    <h2>登录</h2>
-                    <form onsubmit="return false;">
-                        <div class="form-group">
-                            <label for="login-email">邮箱</label>
-                            <input type="email" id="login-email" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="login-password">密码</label>
-                            <input type="password" id="login-password" required>
-                        </div>
-                        <button type="button" id="login-btn" class="btn-primary">登录</button>
-                    </form>
-                    <div class="auth-links">
-                        <a href="#" onclick="app.showForgotPassword()">忘记密码？</a>
-                        <a href="#" onclick="app.showRegisterForm()">注册新账户</a>
-                    </div>
-                </div>
-
-                <!-- 注册表单 -->
-                <div class="auth-form hidden" id="register-form">
-                    <h2>注册</h2>
-                    <form onsubmit="return false;">
-                        <div class="form-group">
-                            <label for="register-email">邮箱</label>
-                            <input type="email" id="register-email" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="register-nickname">昵称</label>
-                            <input type="text" id="register-nickname">
-                        </div>
-                        <div class="form-group">
-                            <label for="register-password">密码</label>
-                            <input type="password" id="register-password" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="register-confirm-password">确认密码</label>
-                            <input type="password" id="register-confirm-password" required>
-                        </div>
-                        <button type="button" id="register-btn" class="btn-primary">注册</button>
-                    </form>
-                    <div class="auth-links">
-                        <a href="#" onclick="app.showLoginForm()">已有账户？登录</a>
-                    </div>
-                </div>
-
-                <!-- 忘记密码表单 -->
-                <div class="auth-form hidden" id="forgot-form">
-                    <h2>忘记密码</h2>
-                    <form onsubmit="return false;">
-                        <div class="form-group">
-                            <label for="forgot-email">邮箱</label>
-                            <input type="email" id="forgot-email" required>
-                        </div>
-                        <button type="button" id="forgot-password-btn" class="btn-primary">重置密码</button>
-                    </form>
-                    <div class="auth-links">
-                        <a href="#" onclick="app.showLoginForm()">返回登录</a>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -98,29 +30,35 @@
                     <span>税务师学习平台</span>
                 </div>
                 <div class="nav-menu">
-                    <button class="nav-btn" onclick="app.showHomeScreen()">
+                    <button class="nav-btn" onclick="showScreen('home')">
                         <i class="fas fa-home"></i>
                         <span>首页</span>
                     </button>
-                    <button class="nav-btn" onclick="app.showDeckScreen()">
+                    <button class="nav-btn" onclick="showScreen('deck')">
                         <i class="fas fa-book"></i>
                         <span>科目</span>
                     </button>
-                    <button class="nav-btn" onclick="app.showDeckManagementScreen()">
-                        <i class="fas fa-cog"></i>
-                        <span>管理</span>
+                    <button class="nav-btn" onclick="showScreen('learning')">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span>学习</span>
                     </button>
-                    <button class="nav-btn" onclick="app.showProfileScreen()">
+                    <button class="nav-btn" onclick="showScreen('profile')">
                         <i class="fas fa-user"></i>
                         <span>我的</span>
                     </button>
                 </div>
                 <div class="nav-user">
-                    <img id="user-avatar" src="" alt="用户头像" class="user-avatar">
-                    <span id="user-welcome">欢迎</span>
-                    <button class="logout-btn" onclick="app.handleLogout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
+                    <div id="user-guest" class="guest-user">
+                        <button class="btn-login" onclick="showAuthModal('login')">登录</button>
+                        <button class="btn-register" onclick="showAuthModal('register')">注册</button>
+                    </div>
+                    <div id="user-logged-in" class="logged-in-user hidden">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNGRkI2QzEiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iNSIgZmlsbD0iIzlEQ0EwNSIvPgo8cGF0aCBkPSJNMjQgMjZDMjQgMjEuMzcyIDE5LjYyOCAxNy41IDE0LjUgMTcuNUM5LjM3MiAxNy41IDUgMjEuMzcyIDUgMjYiIGZpbGw9IiM5RENBMDUiLz4KPC9zdmc+" alt="用户头像" class="user-avatar">
+                        <span id="user-name">欢迎体验</span>
+                        <button class="btn-logout" onclick="handleSignOut()" title="退出登录">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
                 </div>
             </nav>
 
@@ -132,31 +70,54 @@
                         <div class="stat-card">
                             <i class="fas fa-clock"></i>
                             <div class="stat-content">
-                                <h3 id="total-study-time">0</h3>
+                                <h3>2小时</h3>
                                 <p>总学习时间</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <i class="fas fa-cards-blank"></i>
                             <div class="stat-content">
-                                <h3 id="total-cards-studied">0</h3>
+                                <h3>25</h3>
                                 <p>学习卡片</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <i class="fas fa-fire"></i>
                             <div class="stat-content">
-                                <h3 id="current-streak">0天</h3>
+                                <h3>3天</h3>
                                 <p>连续学习</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <i class="fas fa-bookmark"></i>
                             <div class="stat-content">
-                                <h3 id="total-decks">0</h3>
+                                <h3>2</h3>
                                 <p>我的科目</p>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- 快捷学习 -->
+                <section class="quick-actions">
+                    <div class="quick-actions-grid">
+                        <button class="quick-action-btn primary" onclick="startNewLearning()">
+                            <i class="fas fa-plus-circle"></i>
+                            <div class="action-content">
+                                <h3>待学习</h3>
+                                <p>3张新卡片</p>
+                            </div>
+                            <div class="action-badge">📚</div>
+                        </button>
+                        
+                        <button class="quick-action-btn secondary" onclick="startReview()">
+                            <i class="fas fa-redo-circle"></i>
+                            <div class="action-content">
+                                <h3>待复习</h3>
+                                <p>7张卡片</p>
+                            </div>
+                            <div class="action-badge">🔄</div>
+                        </button>
                     </div>
                 </section>
 
@@ -164,18 +125,26 @@
                 <section class="recent-section">
                     <h2>最近学习</h2>
                     <div id="recent-study" class="recent-study-container">
-                        <p class="text-gray-500">还没有学习记录</p>
-                    </div>
-                </section>
-
-                <!-- 推荐科目 -->
-                <section class="recommended-section">
-                    <div class="section-header">
-                        <h2>推荐科目</h2>
-                        <a href="#" onclick="app.showDeckScreen()">查看全部</a>
-                    </div>
-                    <div id="recommended-decks" class="decks-grid">
-                        <p class="text-gray-500">暂无推荐科目</p>
+                        <div class="recent-session-item">
+                            <div class="session-header">
+                                <span class="session-date">今天</span>
+                                <span class="session-time">15分钟</span>
+                            </div>
+                            <div class="session-stats">
+                                <span>学习了5张卡片</span>
+                                <span>正确率80%</span>
+                            </div>
+                        </div>
+                        <div class="recent-session-item">
+                            <div class="session-header">
+                                <span class="session-date">昨天</span>
+                                <span class="session-time">30分钟</span>
+                            </div>
+                            <div class="session-stats">
+                                <span>学习了12张卡片</span>
+                                <span>正确率85%</span>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </main>
@@ -185,15 +154,11 @@
         <div id="deck-screen" class="screen hidden">
             <nav class="navbar">
                 <div class="nav-brand">
-                    <i class="fas fa-arrow-left" onclick="app.showHomeScreen()"></i>
+                    <i class="fas fa-arrow-left" onclick="showScreen('home')"></i>
                     <span>科目选择</span>
                 </div>
                 <div class="nav-actions">
-                    <div class="search-box">
-                        <input type="text" id="search-input" placeholder="搜索科目...">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <button class="btn-primary" onclick="app.showCreateDeckModal()">
+                    <button class="btn-primary" onclick="showModal()">
                         <i class="fas fa-plus"></i>
                         新建科目
                     </button>
@@ -201,18 +166,28 @@
             </nav>
 
             <main class="main-content">
-                <!-- 搜索结果 -->
-                <div id="search-results" class="search-results hidden">
-                    <h3>搜索结果</h3>
-                    <div id="search-results-list"></div>
-                </div>
-
-                <!-- 科目列表 -->
                 <div id="deck-list" class="deck-list">
-                    <div class="empty-state">
-                        <i class="fas fa-book-open"></i>
-                        <h3>还没有任何科目</h3>
-                        <p>点击"新建科目"创建你的第一个学习科目</p>
+                    <div class="deck-item" onclick="showScreen('learning')">
+                        <div class="deck-header">
+                            <h3>税法基础</h3>
+                            <span class="deck-visibility">🌍</span>
+                        </div>
+                        <p class="deck-description">税务师考试基础知识点，包含税收法律、法规等核心内容</p>
+                        <div class="deck-meta">
+                            <span class="deck-cards">50张卡片</span>
+                            <span class="deck-difficulty">初级</span>
+                        </div>
+                    </div>
+                    <div class="deck-item" onclick="showScreen('learning')">
+                        <div class="deck-header">
+                            <h3>会计实务</h3>
+                            <span class="deck-visibility">🔒</span>
+                        </div>
+                        <p class="deck-description">会计实际操作技能，财务报表分析等实用技能</p>
+                        <div class="deck-meta">
+                            <span class="deck-cards">30张卡片</span>
+                            <span class="deck-difficulty">中级</span>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -222,17 +197,11 @@
         <div id="learning-screen" class="screen hidden">
             <nav class="navbar">
                 <div class="nav-brand">
-                    <i class="fas fa-arrow-left" onclick="app.showDeckScreen()"></i>
-                    <span id="learning-deck-name">学习中</span>
+                    <i class="fas fa-arrow-left" onclick="showScreen('deck')"></i>
+                    <span>税法基础 - 学习中</span>
                 </div>
                 <div class="nav-actions">
-                    <div class="learning-progress">
-                        <span>进度: <span id="learning-progress-text">0/0</span></span>
-                        <div class="progress-bar">
-                            <div id="learning-progress-bar" class="progress-fill"></div>
-                        </div>
-                    </div>
-                    <button class="btn-secondary" onclick="app.showDeckScreen()">
+                    <button class="btn-secondary" onclick="showScreen('deck')">
                         <i class="fas fa-times"></i>
                         退出学习
                     </button>
@@ -246,16 +215,16 @@
                         <div class="card-inner">
                             <div class="card-front">
                                 <div class="card-header">
-                                    <span class="card-type" id="card-type">问答</span>
-                                    <span class="card-difficulty" id="card-difficulty">中级</span>
+                                    <span class="card-type">问答</span>
+                                    <span class="card-difficulty">初级</span>
                                 </div>
                                 <div class="card-content">
-                                    <div class="card-question" id="card-question">
-                                        <!-- 问题内容 -->
+                                    <div class="card-question">
+                                        什么是增值税？
                                     </div>
                                 </div>
                                 <div class="card-actions">
-                                    <button id="card-flip-btn" class="btn-primary" onclick="app.flipCard()">
+                                    <button class="btn-primary" onclick="flipCard()">
                                         <i class="fas fa-sync-alt"></i>
                                         查看答案
                                     </button>
@@ -263,20 +232,20 @@
                             </div>
                             <div class="card-back">
                                 <div class="card-header">
-                                    <span class="card-type" id="card-type-back">问答</span>
-                                    <span class="card-difficulty" id="card-difficulty-back">中级</span>
+                                    <span class="card-type">问答</span>
+                                    <span class="card-difficulty">初级</span>
                                 </div>
                                 <div class="card-content">
-                                    <div class="card-answer" id="card-answer">
-                                        <!-- 答案内容 -->
+                                    <div class="card-answer">
+                                        增值税是以商品或劳务在生产、流通、服务环节中产生的增值额作为计税依据而征收的一种流转税。
                                     </div>
                                 </div>
                                 <div class="card-actions">
-                                    <button id="answer-wrong-btn" class="btn-danger" onclick="app.handleAnswer(false)">
+                                    <button class="btn-danger" onclick="handleAnswer(false)">
                                         <i class="fas fa-times"></i>
                                         记不住
                                     </button>
-                                    <button id="answer-correct-btn" class="btn-success" onclick="app.handleAnswer(true)">
+                                    <button class="btn-success" onclick="handleAnswer(true)">
                                         <i class="fas fa-check"></i>
                                         记住了
                                     </button>
@@ -288,34 +257,325 @@
             </main>
         </div>
 
-        <!-- 科目管理界面 -->
-        <div id="deck-management-screen" class="screen hidden">
+        <!-- 待学习页面 -->
+        <div id="new-learning-screen" class="screen hidden">
             <nav class="navbar">
                 <div class="nav-brand">
-                    <i class="fas fa-arrow-left" onclick="app.showHomeScreen()"></i>
-                    <span>科目管理</span>
+                    <i class="fas fa-arrow-left" onclick="showScreen('home')"></i>
+                    <span>待学习</span>
                 </div>
                 <div class="nav-actions">
-                    <button class="btn-primary" onclick="app.showCreateDeckModal()">
-                        <i class="fas fa-plus"></i>
-                        新建科目
+                    <button class="btn-primary" onclick="startLearningSession()">
+                        <i class="fas fa-play"></i>
+                        开始学习
                     </button>
-                    <button class="btn-secondary" onclick="app.exportData()">
-                        <i class="fas fa-download"></i>
-                        导出数据
-                    </button>
-                    <label class="btn-secondary">
-                        <i class="fas fa-upload"></i>
-                        导入数据
-                        <input type="file" accept=".json" onchange="app.importData(event)" style="display: none;">
-                    </label>
                 </div>
             </nav>
 
             <main class="main-content">
-                <div id="user-decks-list" class="deck-list">
-                    <!-- 用户科目列表 -->
+                <!-- 学习进度 -->
+                <section class="stats-section">
+                    <h2>学习进度</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <i class="fas fa-clock"></i>
+                            <div class="stat-content">
+                                <h3>预计15分钟</h3>
+                                <p>本次学习时间</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-cards-blank"></i>
+                            <div class="stat-content">
+                                <h3>3张</h3>
+                                <p>新卡片</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-trophy"></i>
+                            <div class="stat-content">
+                                <h3>初级</h3>
+                                <p>难度等级</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 新卡片预览 -->
+                <section class="new-cards-section">
+                    <h2>即将学习的卡片</h2>
+                    <div class="cards-preview-grid">
+                        <div class="card-preview-item">
+                            <div class="card-preview-header">
+                                <span class="card-type-badge">问答</span>
+                                <span class="card-difficulty-badge">初级</span>
+                            </div>
+                            <div class="card-preview-content">
+                                <h3>什么是增值税？</h3>
+                                <p>增值税是以商品或劳务在生产、流通、服务环节中产生的增值额作为计税依据而征收的一种流转税。</p>
+                            </div>
+                            <div class="card-preview-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="card-time">⏱️ 2分钟</span>
+                            </div>
+                        </div>
+                        
+                        <div class="card-preview-item">
+                            <div class="card-preview-header">
+                                <span class="card-type-badge">选择</span>
+                                <span class="card-difficulty-badge">初级</span>
+                            </div>
+                            <div class="card-preview-content">
+                                <h3>增值税的税率有哪些？</h3>
+                                <p>包括基本税率、低税率、零税率等不同档次...</p>
+                            </div>
+                            <div class="card-preview-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="card-time">⏱️ 3分钟</span>
+                            </div>
+                        </div>
+                        
+                        <div class="card-preview-item">
+                            <div class="card-preview-header">
+                                <span class="card-type-badge">判断</span>
+                                <span class="card-difficulty-badge">初级</span>
+                            </div>
+                            <div class="card-preview-content">
+                                <h3>增值税是价内税吗？</h3>
+                                <p>判断增值税的性质和特点...</p>
+                            </div>
+                            <div class="card-preview-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="card-time">⏱️ 1分钟</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 学习建议 -->
+                <section class="learning-tips">
+                    <div class="tips-container">
+                        <div class="tip-item">
+                            <i class="fas fa-lightbulb"></i>
+                            <div class="tip-content">
+                                <h4>💡 学习建议</h4>
+                                <p>建议找个安静的环境，专注学习这些基础知识。每张卡片学习后可以适当休息一下。</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- 待复习页面 -->
+        <div id="review-screen" class="screen hidden">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <i class="fas fa-arrow-left" onclick="showScreen('home')"></i>
+                    <span>待复习</span>
                 </div>
+                <div class="nav-actions">
+                    <button class="btn-primary" onclick="startReviewSession()">
+                        <i class="fas fa-redo"></i>
+                        开始复习
+                    </button>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <!-- 复习进度 -->
+                <section class="stats-section">
+                    <h2>复习进度</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <i class="fas fa-clock"></i>
+                            <div class="stat-content">
+                                <h3>预计20分钟</h3>
+                                <p>本次复习时间</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-cards-blank"></i>
+                            <div class="stat-content">
+                                <h3>7张</h3>
+                                <p>复习卡片</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-calendar-check"></i>
+                            <div class="stat-content">
+                                <h3>今天到期</h3>
+                                <p>复习时间</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 复习卡片列表 -->
+                <section class="review-cards-section">
+                    <h2>待复习卡片</h2>
+                    <div class="review-cards-grid">
+                        <div class="review-card-item">
+                            <div class="review-card-header">
+                                <div class="review-info">
+                                    <span class="card-type-badge">问答</span>
+                                    <span class="review-level">Level 2</span>
+                                </div>
+                                <div class="review-due">
+                                    <i class="fas fa-clock"></i>
+                                    <span>今天到期</span>
+                                </div>
+                            </div>
+                            <div class="review-card-content">
+                                <h3>什么是增值税？</h3>
+                                <p class="review-hint">上次学习：2天前</p>
+                            </div>
+                            <div class="review-card-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="review-progress">📈 间隔：2天</span>
+                            </div>
+                        </div>
+
+                        <div class="review-card-item">
+                            <div class="review-card-header">
+                                <div class="review-info">
+                                    <span class="card-type-badge">选择</span>
+                                    <span class="review-level">Level 3</span>
+                                </div>
+                                <div class="review-due">
+                                    <i class="fas fa-clock"></i>
+                                    <span>今天到期</span>
+                                </div>
+                            </div>
+                            <div class="review-card-content">
+                                <h3>增值税的纳税人包括哪些？</h3>
+                                <p class="review-hint">上次学习：4天前</p>
+                            </div>
+                            <div class="review-card-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="review-progress">📈 间隔：4天</span>
+                            </div>
+                        </div>
+
+                        <div class="review-card-item">
+                            <div class="review-card-header">
+                                <div class="review-info">
+                                    <span class="card-type-badge">判断</span>
+                                    <span class="review-level">Level 1</span>
+                                </div>
+                                <div class="review-due">
+                                    <i class="fas fa-clock"></i>
+                                    <span>今天到期</span>
+                                </div>
+                            </div>
+                            <div class="review-card-content">
+                                <h3>小规模纳税人的标准是什么？</h3>
+                                <p class="review-hint">上次学习：1天前</p>
+                            </div>
+                            <div class="review-card-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="review-progress">📈 间隔：1天</span>
+                            </div>
+                        </div>
+
+                        <div class="review-card-item">
+                            <div class="review-card-header">
+                                <div class="review-info">
+                                    <span class="card-type-badge">问答</span>
+                                    <span class="review-level">Level 4</span>
+                                </div>
+                                <div class="review-due">
+                                    <i class="fas fa-clock"></i>
+                                    <span>今天到期</span>
+                                </div>
+                            </div>
+                            <div class="review-card-content">
+                                <h3>增值税的免税项目有哪些？</h3>
+                                <p class="review-hint">上次学习：8天前</p>
+                            </div>
+                            <div class="review-card-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="review-progress">📈 间隔：8天</span>
+                            </div>
+                        </div>
+
+                        <div class="review-card-item">
+                            <div class="review-card-header">
+                                <div class="review-info">
+                                    <span class="card-type-badge">计算</span>
+                                    <span class="review-level">Level 2</span>
+                                </div>
+                                <div class="review-due">
+                                    <i class="fas fa-clock"></i>
+                                    <span>今天到期</span>
+                                </div>
+                            </div>
+                            <div class="review-card-content">
+                                <h3>如何计算应纳增值税额？</h3>
+                                <p class="review-hint">上次学习：2天前</p>
+                            </div>
+                            <div class="review-card-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="review-progress">📈 间隔：2天</span>
+                            </div>
+                        </div>
+
+                        <div class="review-card-item">
+                            <div class="review-card-header">
+                                <div class="review-info">
+                                    <span class="card-type-badge">选择</span>
+                                    <span class="review-level">Level 1</span>
+                                </div>
+                                <div class="review-due">
+                                    <i class="fas fa-clock"></i>
+                                    <span>今天到期</span>
+                                </div>
+                            </div>
+                            <div class="review-card-content">
+                                <h3>增值税的征收范围是什么？</h3>
+                                <p class="review-hint">上次学习：1天前</p>
+                            </div>
+                            <div class="review-card-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="review-progress">📈 间隔：1天</span>
+                            </div>
+                        </div>
+
+                        <div class="review-card-item">
+                            <div class="review-card-header">
+                                <div class="review-info">
+                                    <span class="card-type-badge">判断</span>
+                                    <span class="review-level">Level 5</span>
+                                </div>
+                                <div class="review-due">
+                                    <i class="fas fa-clock"></i>
+                                    <span>今天到期</span>
+                                </div>
+                            </div>
+                            <div class="review-card-content">
+                                <h3>增值税专用发票的作用是什么？</h3>
+                                <p class="review-hint">上次学习：16天前</p>
+                            </div>
+                            <div class="review-card-footer">
+                                <span class="card-subject">税法基础</span>
+                                <span class="review-progress">📈 间隔：16天</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 复习建议 -->
+                <section class="learning-tips">
+                    <div class="tips-container">
+                        <div class="tip-item">
+                            <i class="fas fa-brain"></i>
+                            <div class="tip-content">
+                                <h4>🧠 复习提示</h4>
+                                <p>根据间隔重复算法，这些卡片需要今天复习。记得诚实评估自己的掌握程度，系统会据此安排下次复习时间。</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </main>
         </div>
 
@@ -323,7 +583,7 @@
         <div id="profile-screen" class="screen hidden">
             <nav class="navbar">
                 <div class="nav-brand">
-                    <i class="fas fa-arrow-left" onclick="app.showHomeScreen()"></i>
+                    <i class="fas fa-arrow-left" onclick="showScreen('home')"></i>
                     <span>个人资料</span>
                 </div>
             </nav>
@@ -331,68 +591,25 @@
             <main class="main-content">
                 <div class="profile-container">
                     <div class="profile-header">
-                        <img id="profile-avatar" src="" alt="头像" class="profile-avatar">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjRkZCNkMxIi8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iNDAiIHI9IjE1IiBmaWxsPSIjOUNEQTA1Ii8+CjxwYXRoIGQ9Ik03NSA4MEM3NSA2NS42MjUgNjEuMjUgNTUgNTAgNTVDMzguNzUgNTUgMjUgNjUuNjI1IDI1IDgwIiBmaWxsPSIjOUNEQTA1Ii8+Cjwvc3ZnPg==" alt="头像" class="profile-avatar">
                         <div class="profile-info">
-                            <h2 id="profile-name">用户名</h2>
-                            <p id="profile-email">邮箱</p>
-                            <span id="profile-role" class="role-badge">学生</span>
+                            <h2 id="profile-name">演示用户</h2>
+                            <p id="profile-email">demo@example.com</p>
+                            <span class="role-badge">学生</span>
                         </div>
                     </div>
 
                     <div class="profile-section">
                         <h3>个人信息</h3>
-                        <form id="profile-form" onsubmit="return false;">
+                        <form>
                             <div class="form-group">
-                                <label for="profile-nickname">昵称</label>
-                                <input type="text" id="profile-nickname">
+                                <label>昵称</label>
+                                <input type="text" value="演示用户">
                             </div>
                             <div class="form-group">
-                                <label for="profile-email-display">邮箱</label>
-                                <input type="email" id="profile-email-display" readonly>
+                                <label>邮箱</label>
+                                <input type="email" value="demo@example.com" readonly>
                             </div>
-                            <div class="form-group">
-                                <label for="profile-role-display">角色</label>
-                                <input type="text" id="profile-role-display" readonly>
-                            </div>
-                            <button type="button" class="btn-primary" onclick="app.updateProfile()">
-                                <i class="fas fa-save"></i>
-                                保存修改
-                            </button>
-                        </form>
-                    </div>
-
-                    <div class="profile-section">
-                        <h3>安全设置</h3>
-                        <div class="security-actions">
-                            <button class="btn-secondary" onclick="app.showChangePasswordModal()">
-                                <i class="fas fa-key"></i>
-                                修改密码
-                            </button>
-                            <button class="btn-danger" onclick="app.showDeleteAccountModal()">
-                                <i class="fas fa-trash"></i>
-                                删除账户
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="profile-section">
-                        <h3>学习设置</h3>
-                        <form id="settings-form" onsubmit="return false;">
-                            <div class="form-group">
-                                <label for="theme-setting">主题</label>
-                                <select id="theme-setting">
-                                    <option value="light">浅色</option>
-                                    <option value="dark">深色</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="reminder-setting">学习提醒</label>
-                                <input type="checkbox" id="reminder-setting">
-                            </div>
-                            <button type="button" class="btn-primary" onclick="app.updateSettings()">
-                                <i class="fas fa-save"></i>
-                                保存设置
-                            </button>
                         </form>
                     </div>
                 </div>
@@ -400,141 +617,87 @@
         </div>
     </div>
 
+    <!-- 认证模态框 -->
+    <div id="auth-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>用户登录</h3>
+                <button class="close-modal" onclick="hideAuthModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- 标签页 -->
+                <div class="auth-tabs">
+                    <button id="login-tab" class="auth-tab active" onclick="switchAuthTab('login')">登录</button>
+                    <button id="register-tab" class="auth-tab" onclick="switchAuthTab('register')">注册</button>
+                </div>
+
+                <!-- 登录表单 -->
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="login-email" placeholder="请输入邮箱" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="login-password" placeholder="请输入密码" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="hideAuthModal()">取消</button>
+                        <button type="submit" class="btn-primary">登录</button>
+                    </div>
+                </form>
+
+                <!-- 注册表单 -->
+                <form id="register-form" class="hidden" onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label>昵称</label>
+                        <input type="text" id="register-name" placeholder="请输入昵称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="register-email" placeholder="请输入邮箱" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="register-password" placeholder="请输入密码（至少6位）" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label>确认密码</label>
+                        <input type="password" id="register-confirm-password" placeholder="请再次输入密码" required minlength="6">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="hideAuthModal()">取消</button>
+                        <button type="submit" class="btn-primary">注册</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- 模态框 -->
-    <!-- 创建科目模态框 -->
-    <div id="deck-modal" class="modal">
+    <div id="modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>新建科目</h3>
-                <button class="close-modal" onclick="app.closeModal()">
+                <button class="close-modal" onclick="hideModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
-                <form id="deck-form" onsubmit="return false;">
+                <form>
                     <div class="form-group">
-                        <label for="deck-name">科目名称 *</label>
-                        <input type="text" id="deck-name" required>
+                        <label>科目名称 *</label>
+                        <input type="text" placeholder="请输入科目名称">
                     </div>
                     <div class="form-group">
-                        <label for="deck-description">科目描述</label>
-                        <textarea id="deck-description" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="deck-category">科目分类</label>
-                        <select id="deck-category">
-                            <option value="税务师考试">税务师考试</option>
-                            <option value="会计职称">会计职称</option>
-                            <option value="其他">其他</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="deck-difficulty">难度等级</label>
-                        <select id="deck-difficulty">
-                            <option value="beginner">初级</option>
-                            <option value="intermediate">中级</option>
-                            <option value="advanced">高级</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="deck-visibility">可见性</label>
-                        <select id="deck-visibility">
-                            <option value="private">私有</option>
-                            <option value="public">公开</option>
-                        </select>
+                        <label>科目描述</label>
+                        <textarea placeholder="请输入科目描述"></textarea>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="app.closeModal()">取消</button>
-                        <button type="button" id="save-deck-btn" class="btn-primary">保存</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- 卡片详情模态框 -->
-    <div id="card-detail-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>卡片详情</h3>
-                <button class="close-modal" onclick="app.closeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="card-detail-section">
-                    <h4>问题</h4>
-                    <div class="modal-question"></div>
-                </div>
-                <div class="card-detail-section">
-                    <h4>答案</h4>
-                    <div class="modal-answer"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 修改密码模态框 -->
-    <div id="change-password-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>修改密码</h3>
-                <button class="close-modal" onclick="app.closeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="change-password-form" onsubmit="return false;">
-                    <div class="form-group">
-                        <label for="current-password">当前密码</label>
-                        <input type="password" id="current-password" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="new-password">新密码</label>
-                        <input type="password" id="new-password" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="confirm-new-password">确认新密码</label>
-                        <input type="password" id="confirm-new-password" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="app.closeModal()">取消</button>
-                        <button type="button" class="btn-primary" onclick="app.changePassword()">修改密码</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- 删除账户模态框 -->
-    <div id="delete-account-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>删除账户</h3>
-                <button class="close-modal" onclick="app.closeModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="warning-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>删除账户将永久移除您的所有数据，包括：</p>
-                    <ul>
-                        <li>个人资料和设置</li>
-                        <li>创建的所有科目和卡片</li>
-                        <li>学习进度和统计</li>
-                        <li>书签和学习记录</li>
-                    </ul>
-                    <p>此操作无法撤销，请谨慎操作。</p>
-                </div>
-                <form id="delete-account-form" onsubmit="return false;">
-                    <div class="form-group">
-                        <label for="delete-password">请输入密码确认删除</label>
-                        <input type="password" id="delete-password" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="app.closeModal()">取消</button>
-                        <button type="button" class="btn-danger" onclick="app.deleteAccount()">删除账户</button>
+                        <button type="button" class="btn-secondary" onclick="hideModal()">取消</button>
+                        <button type="button" class="btn-primary" onclick="showToast('演示版本：创建功能暂不可用', 'info')">保存</button>
                     </div>
                 </form>
             </div>
@@ -544,9 +707,7 @@
     <!-- 提示消息 -->
     <div id="toast" class="toast"></div>
 
-    <!-- 脚本 -->
-    <script src="db.js"></script>
-    <script src="auth.js"></script>
-    <script src="app.js"></script>
+    <!-- JavaScript文件 -->
+    <script src="assets/js/main.js"></script>
 </body>
 </html>

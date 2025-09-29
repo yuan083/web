@@ -1,0 +1,211 @@
+<!-- 待复习页面 -->
+<div id="review-screen" class="screen hidden">
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-arrow-left" onclick="showScreen('home')"></i>
+            <span>待复习</span>
+        </div>
+        <div class="nav-actions">
+            <button class="btn-primary" onclick="startReviewSession()">
+                <i class="fas fa-redo"></i>
+                开始复习
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <!-- 复习进度 -->
+        <section class="stats-section">
+            <h2>复习进度</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <i class="fas fa-clock"></i>
+                    <div class="stat-content">
+                        <h3>预计20分钟</h3>
+                        <p>本次复习时间</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-cards-blank"></i>
+                    <div class="stat-content">
+                        <h3>7张</h3>
+                        <p>复习卡片</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-calendar-check"></i>
+                    <div class="stat-content">
+                        <h3>今天到期</h3>
+                        <p>复习时间</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 复习卡片列表 -->
+        <section class="review-cards-section">
+            <h2>待复习卡片</h2>
+            <div class="review-cards-grid">
+                <div class="review-card-item">
+                    <div class="review-card-header">
+                        <div class="review-info">
+                            <span class="card-type-badge">问答</span>
+                            <span class="review-level">Level 2</span>
+                        </div>
+                        <div class="review-due">
+                            <i class="fas fa-clock"></i>
+                            <span>今天到期</span>
+                        </div>
+                    </div>
+                    <div class="review-card-content">
+                        <h3>什么是增值税？</h3>
+                        <p class="review-hint">上次学习：2天前</p>
+                    </div>
+                    <div class="review-card-footer">
+                        <span class="card-subject">税法基础</span>
+                        <span class="review-progress">📈 间隔：2天</span>
+                    </div>
+                </div>
+
+                <div class="review-card-item">
+                    <div class="review-card-header">
+                        <div class="review-info">
+                            <span class="card-type-badge">选择</span>
+                            <span class="review-level">Level 3</span>
+                        </div>
+                        <div class="review-due">
+                            <i class="fas fa-clock"></i>
+                            <span>今天到期</span>
+                        </div>
+                    </div>
+                    <div class="review-card-content">
+                        <h3>增值税的纳税人包括哪些？</h3>
+                        <p class="review-hint">上次学习：4天前</p>
+                    </div>
+                    <div class="review-card-footer">
+                        <span class="card-subject">税法基础</span>
+                        <span class="review-progress">📈 间隔：4天</span>
+                    </div>
+                </div>
+
+                <div class="review-card-item">
+                    <div class="review-card-header">
+                        <div class="review-info">
+                            <span class="card-type-badge">判断</span>
+                            <span class="review-level">Level 1</span>
+                        </div>
+                        <div class="review-due">
+                            <i class="fas fa-clock"></i>
+                            <span>今天到期</span>
+                        </div>
+                    </div>
+                    <div class="review-card-content">
+                        <h3>小规模纳税人的标准是什么？</h3>
+                        <p class="review-hint">上次学习：1天前</p>
+                    </div>
+                    <div class="review-card-footer">
+                        <span class="card-subject">税法基础</span>
+                        <span class="review-progress">📈 间隔：1天</span>
+                    </div>
+                </div>
+
+                <div class="review-card-item">
+                    <div class="review-card-header">
+                        <div class="review-info">
+                            <span class="card-type-badge">问答</span>
+                            <span class="review-level">Level 4</span>
+                        </div>
+                        <div class="review-due">
+                            <i class="fas fa-clock"></i>
+                            <span>今天到期</span>
+                        </div>
+                    </div>
+                    <div class="review-card-content">
+                        <h3>增值税的免税项目有哪些？</h3>
+                        <p class="review-hint">上次学习：8天前</p>
+                    </div>
+                    <div class="review-card-footer">
+                        <span class="card-subject">税法基础</span>
+                        <span class="review-progress">📈 间隔：8天</span>
+                    </div>
+                </div>
+
+                <div class="review-card-item">
+                    <div class="review-card-header">
+                        <div class="review-info">
+                            <span class="card-type-badge">计算</span>
+                            <span class="review-level">Level 2</span>
+                        </div>
+                        <div class="review-due">
+                            <i class="fas fa-clock"></i>
+                            <span>今天到期</span>
+                        </div>
+                    </div>
+                    <div class="review-card-content">
+                        <h3>如何计算应纳增值税额？</h3>
+                        <p class="review-hint">上次学习：2天前</p>
+                    </div>
+                    <div class="review-card-footer">
+                        <span class="card-subject">税法基础</span>
+                        <span class="review-progress">📈 间隔：2天</span>
+                    </div>
+                </div>
+
+                <div class="review-card-item">
+                    <div class="review-card-header">
+                        <div class="review-info">
+                            <span class="card-type-badge">选择</span>
+                            <span class="review-level">Level 1</span>
+                        </div>
+                        <div class="review-due">
+                            <i class="fas fa-clock"></i>
+                            <span>今天到期</span>
+                        </div>
+                    </div>
+                    <div class="review-card-content">
+                        <h3>增值税的征收范围是什么？</h3>
+                        <p class="review-hint">上次学习：1天前</p>
+                    </div>
+                    <div class="review-card-footer">
+                        <span class="card-subject">税法基础</span>
+                        <span class="review-progress">📈 间隔：1天</span>
+                    </div>
+                </div>
+
+                <div class="review-card-item">
+                    <div class="review-card-header">
+                        <div class="review-info">
+                            <span class="card-type-badge">判断</span>
+                            <span class="review-level">Level 5</span>
+                        </div>
+                        <div class="review-due">
+                            <i class="fas fa-clock"></i>
+                            <span>今天到期</span>
+                        </div>
+                    </div>
+                    <div class="review-card-content">
+                        <h3>增值税专用发票的作用是什么？</h3>
+                        <p class="review-hint">上次学习：16天前</p>
+                    </div>
+                    <div class="review-card-footer">
+                        <span class="card-subject">税法基础</span>
+                        <span class="review-progress">📈 间隔：16天</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 复习建议 -->
+        <section class="learning-tips">
+            <div class="tips-container">
+                <div class="tip-item">
+                    <i class="fas fa-brain"></i>
+                    <div class="tip-content">
+                        <h4>🧠 复习提示</h4>
+                        <p>根据间隔重复算法，这些卡片需要今天复习。记得诚实评估自己的掌握程度，系统会据此安排下次复习时间。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
