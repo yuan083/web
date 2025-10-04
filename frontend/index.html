@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>税务学习平台</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 应用容器 -->
+    <div id="app" class="app-container">
+        <!-- 顶部导航 -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                    税务学习平台
+                </h1>
+                <nav class="nav">
+                    <button class="nav-btn active" data-page="learning">
+                        <i class="fas fa-book"></i>
+                        <span>学习</span>
+                    </button>
+                    <button class="nav-btn" data-page="quiz">
+                        <i class="fas fa-question-circle"></i>
+                        <span>练习</span>
+                    </button>
+                    <button class="nav-btn" data-page="progress">
+                        <i class="fas fa-chart-line"></i>
+                        <span>进度</span>
+                    </button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 学习页面 -->
+            <div id="learning-page" class="page active">
+                <!-- 税种选择 -->
+                <div class="topic-selection">
+                    <h2>选择税种</h2>
+                    <div class="topic-grid" id="topic-grid">
+                        <!-- 动态加载税种 -->
+                    </div>
+                </div>
+
+                <!-- 章节内容 -->
+                <div class="chapter-content" id="chapter-content" style="display: none;">
+                    <div class="chapter-header">
+                        <button class="back-btn" id="back-to-topics">
+                            <i class="fas fa-arrow-left"></i>
+                            返回
+                        </button>
+                        <h2 id="chapter-title">章节标题</h2>
+                    </div>
+
+                    <!-- 知识点列表 -->
+                    <div class="knowledge-list" id="knowledge-list">
+                        <!-- 动态加载知识点 -->
+                    </div>
+                </div>
+
+                <!-- 知识点详情 -->
+                <div class="knowledge-detail" id="knowledge-detail" style="display: none;">
+                    <div class="detail-header">
+                        <button class="back-btn" id="back-to-chapter">
+                            <i class="fas fa-arrow-left"></i>
+                            返回
+                        </button>
+                        <h3 id="knowledge-title">知识点标题</h3>
+                    </div>
+
+                    <div class="detail-content">
+                        <div class="content-section">
+                            <h4>核心内容</h4>
+                            <div id="knowledge-content" class="content-text"></div>
+                        </div>
+
+                        <div class="key-points-section">
+                            <h4>关键要点</h4>
+                            <ul id="key-points-list" class="key-points-list"></ul>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" id="start-quiz-btn">
+                                <i class="fas fa-play"></i>
+                                开始练习
+                            </button>
+                            <button class="btn btn-secondary" id="mark-learned-btn">
+                                <i class="fas fa-check"></i>
+                                标记已学
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 练习页面 -->
+            <div id="quiz-page" class="page">
+                <div class="quiz-container">
+                    <div class="quiz-header">
+                        <h2>练习模式</h2>
+                        <div class="quiz-stats">
+                            <span id="question-counter">1 / 10</span>
+                            <span id="correct-rate">正确率: 0%</span>
+                        </div>
+                    </div>
+
+                    <div class="quiz-content" id="quiz-content">
+                        <!-- 动态加载题目 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 进度页面 -->
+            <div id="progress-page" class="page">
+                <div class="progress-container">
+                    <h2>学习进度</h2>
+                    <div class="progress-overview">
+                        <div class="progress-card">
+                            <h3>总学习时长</h3>
+                            <div class="progress-value">0 小时</div>
+                        </div>
+                        <div class="progress-card">
+                            <h3>已完成知识点</h3>
+                            <div class="progress-value">0 / 0</div>
+                        </div>
+                        <div class="progress-card">
+                            <h3>练习正确率</h3>
+                            <div class="progress-value">0%</div>
+                        </div>
+                    </div>
+
+                    <div class="progress-detail">
+                        <h3>详细进度</h3>
+                        <div id="progress-list" class="progress-list">
+                            <!-- 动态加载进度 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部状态栏 -->
+        <footer class="footer">
+            <div class="status-bar">
+                <span class="connection-status" id="connection-status">
+                    <i class="fas fa-wifi"></i>
+                    已连接
+                </span>
+                <span class="sync-status" id="sync-status">
+                    <i class="fas fa-sync"></i>
+                    已同步
+                </span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 加载脚本 -->
+    <script src="script.js"></script>
+</body>
+</html>

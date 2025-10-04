@@ -1,0 +1,16 @@
+{
+  "name": "tax-learning-frontend",
+  "version": "1.0.0",
+  "description": "税务学习平台前端应用",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 9367 --directory frontend",
+    "build": 'echo "Static frontend - no build needed"',
+    "preview": "python3 -m http.server 8080 --directory frontend"
+  },
+  "keywords": ["tax", "learning", "frontend", "chinese"],
+  "author": "yuan",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {}
+}
