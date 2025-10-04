@@ -1,130 +1,131 @@
-# 税务师学习平台 - 项目文件结构
+# 税务学习平台 (Tax Learning Platform)
 
-## 📁 项目目录结构
+基于MongoDB的税务考试学习系统，支持间隔重复算法和智能推荐。
 
-```
-shuiwushi/
-├── index.html                 # 主页面文件
-├── assets/                    # 资源文件夹
-│   ├── css/                  # 样式文件
-│   │   └── style.css         # 主样式文件
-│   ├── js/                   # JavaScript文件
-│   │   └── main.js           # 主逻辑文件
-│   └── templates/            # 页面模板
-│       ├── deck.html         # 科目选择页面
-│       ├── learning.html     # 学习页面
-│       ├── new-learning.html # 待学习页面
-│       ├── review.html       # 待复习页面
-│       └── profile.html      # 个人资料页面
-└── README.md                 # 项目说明文件
-```
+## 🚀 快速开始
 
-## 🚀 功能特性
+### 环境要求
+- Node.js 16+
+- MongoDB 8.2+
+- npm 或 yarn
 
-### 主要页面
-- **首页** (index.html) - 学习统计、快捷操作、最近学习记录
-- **科目选择** (deck.html) - 选择学习科目
-- **学习页面** (learning.html) - 3D卡片翻转学习界面
-- **待学习** (new-learning.html) - 新卡片预览和学习进度
-- **待复习** (review.html) - 间隔重复复习卡片列表
-- **个人资料** (profile.html) - 用户信息管理
-
-### 设计特色
-- **女生友好界面** - 柔和马卡龙色系、圆润设计元素
-- **响应式设计** - 支持手机、平板、桌面设备
-- **动态加载** - 按需加载页面模板，提升性能
-- **3D动画** - 卡片翻转效果和流畅过渡动画
-- **间隔重复** - 智能复习算法，提高学习效率
-
-## 🛠️ 技术栈
-
-- **HTML5** - 语义化标签结构
-- **CSS3** - 现代样式特性 (Grid, Flexbox, 渐变, 动画)
-- **JavaScript ES6+** - 模块化、异步编程、状态管理
-- **Font Awesome** - 图标库
-- **Google Fonts** - 中文字体支持
-
-## 📱 使用方法
-
-1. **直接打开** - 在浏览器中打开 `index.html`
-2. **本地服务器** - 使用Python、Node.js等启动本地服务器
-3. **静态部署** - 可部署到GitHub Pages、Netlify等平台
-
-### 本地开发服务器
+### 安装依赖
 ```bash
-# 使用Python
-python3 -m http.server 8000
-
-# 使用Node.js
-npx http-server
-
-# 访问 http://localhost:8000
+npm install
 ```
 
-## 🎨 样式系统
+### 数据库初始化
+```bash
+# 重置并初始化数据库
+npm run reset-db
 
-### 色彩主题
-- **主色系**: 柔和马卡龙色系
-- **主色调**: #FFB6C1 (浅粉色)
-- **辅助色**: #DDA0DD (梅红色)
-- **强调色**: #E6E6FA (薰衣草色)
+# 或者分步执行
+npm run init-db      # 初始化数据
+npm run create-indexes  # 创建索引
+npm run test-db      # 验证数据库
+```
 
-### 字体系统
-- **主字体**: Noto Sans SC (思源黑体)
-- **显示字体**: ZCOOL QingKe HuangYou (站酷庆科黄油体)
-- **装饰字体**: Ma Shan Zheng (马善政楷体)
+### 启动开发服务器
+```bash
+npm run dev
+```
 
-### 动画效果
-- **过渡动画**: 0.4s 平滑过渡
-- **悬浮效果**: 卡片悬浮时缩放和阴影变化
-- **翻转动画**: 3D卡片翻转效果
-- **光效动画**: 悬浮时的光效扫过效果
+## 📁 项目结构
 
-## 🔧 开发说明
+```
+├── package.json              # 项目配置
+├── scripts/                  # 数据库脚本
+│   ├── init-database.js     # 数据库初始化
+│   ├── create-indexes.js    # 索引创建
+│   └── test-queries.js      # 功能验证
+└── server/                   # 后端代码 (待开发)
+    └── app.js              # Express应用
+```
 
-### JavaScript架构
-- **状态管理**: AppState 对象管理应用状态
-- **模板系统**: 异步加载和缓存HTML模板
-- **事件系统**: 统一的事件处理和自定义事件
-- **工具函数**: 模块化的工具函数库
+## 🗄️ 数据库设计
 
-### 性能优化
-- **模板缓存**: 减少重复的网络请求
-- **按需加载**: 只加载需要的页面模板
-- **事件委托**: 优化事件处理性能
-- **CSS优化**: 使用CSS变量和复用样式类
+### 集合结构
 
-### 扩展性
-- **模块化设计**: 易于添加新页面和功能
-- **配置化**: 样式通过CSS变量配置
-- **插件化**: 支持功能模块的独立开发
+#### `knowledge_points` - 知识点集合
+```javascript
+{
+  topic: "环境保护税",           // 税种
+  main_topic: "概念和征税范围",   // 主要章节
+  sub_topic: "纳税人",          // 具体知识点
+  content: "知识点内容...",
+  key_points: ["重点1", "重点2"], // 考点重点
+  tags: ["纳税人", "环保税"],    // 标签
+  display_order: 1              // 显示顺序
+}
+```
 
-## 🚦 浏览器兼容性
+#### `quizzes` - 题目集合
+```javascript
+{
+  type: "multiple_choice",      // 题目类型
+  question_text: "题目内容...",
+  options: [{key: "A", text: "选项A"}],
+  correct_answer: ["A", "C"],   // 正确答案
+  explanation: "解析内容...",
+  difficulty: "medium",         // 难度
+  source: "2019年真题"          // 来源
+}
+```
 
-- **现代浏览器**: Chrome 60+, Firefox 55+, Safari 12+, Edge 79+
-- **移动端**: iOS Safari 12+, Android Chrome 60+
-- **特性支持**: ES6+, CSS Grid, Flexbox, CSS Variables
+#### `users` - 用户集合
+```javascript
+{
+  user_id: "unique_id",
+  nickname: "用户昵称",
+  phone: "15630827927",
+  learning_progress: [{         // 学习进度
+    point_id: ObjectId,
+    status: "learned",
+    last_studied_at: Date
+  }],
+  quiz_history: [{             // 答题历史
+    quiz_id: ObjectId,
+    user_answer: ["A", "B"],
+    is_correct: true
+  }]
+}
+```
 
-## 📝 更新日志
+## 📊 数据验证
 
-### v1.0.0
-- ✅ 完成基础架构设计
-- ✅ 实现女生友好界面
-- ✅ 添加待学习和待复习页面
-- ✅ 拆分文件结构优化维护性
-- ✅ 实现动态页面加载系统
+运行验证脚本确认数据库功能：
+```bash
+npm run test-db
+```
 
-## 🤝 贡献指南
+验证包括：
+- ✅ 基础数据查询
+- ✅ 层级查询功能
+- ✅ 关联查询功能
+- ✅ 全文搜索功能
+- ✅ 用户数据查询
+- ✅ 复杂查询场景
+- ✅ 索引使用情况
 
-1. Fork 项目
-2. 创建功能分支
-3. 提交变更
-4. 发起 Pull Request
+## 🔧 开发脚本
 
-## 📄 许可证
+- `npm start` - 启动生产服务器
+- `npm run dev` - 启动开发服务器 (nodemon)
+- `npm run reset-db` - 重置数据库
+- `npm run test-db` - 验证数据库功能
 
-本项目仅供学习和演示使用。
+## 📈 当前状态
 
----
+- ✅ MongoDB数据库设计完成
+- ✅ 索引优化完成
+- ✅ 数据验证脚本完成
+- ⏳ Express后端API开发中
+- ⏳ 前端界面开发待开始
 
-**注意**: 这是一个演示项目，展示了现代Web开发技术和界面设计理念。如需用于生产环境，请进一步完善功能和安全措施。
+## 🎯 下一步计划
+
+1. 开发Express后端API
+2. 实现用户认证系统
+3. 开发前端学习界面
+4. 实现间隔重复算法
+5. 添加学习统计功能
