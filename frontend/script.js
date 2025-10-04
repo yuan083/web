@@ -36,6 +36,10 @@ class TaxLearningApp {
                 this.currentUser = JSON.parse(user);
                 this.authToken = token;
                 this.showAuthenticatedUI();
+
+                // 加载用户学习进度
+                this.loadUserProgress();
+
                 this.switchPage('learning');
             } catch (error) {
                 console.error('恢复登录状态失败:', error);
@@ -147,6 +151,10 @@ class TaxLearningApp {
 
                 this.showAuthenticatedUI();
                 this.showMessage('登录成功！', 'success');
+
+                // 加载用户学习进度
+                this.loadUserProgress();
+
                 this.switchPage('learning');
                 this.loadTopics();
             } else {
@@ -687,8 +695,141 @@ class TaxLearningApp {
         this.showMessage('练习功能开发中...', 'info');
     }
 
-    markAsLearned() {
-        this.showMessage('学习进度将同步到云端', 'success');
+    async markAsLearned() {
+        if (!this.currentKnowledge || !this.currentUser) {
+            this.showMessage('请先登录', 'error');
+            return;
+        }
+
+        const markLearnedBtn = document.getElementById('mark-learned-btn');
+        this.setButtonLoading(markLearnedBtn, true);
+
+        try {
+            const response = await this.makeAPIRequest('/user/progress/mark-learned', {
+                method: 'POST',
+                body: JSON.stringify({
+                    pointId: this.currentKnowledge._id
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showMessage(data.message, 'success');
+
+                // 更新按钮状态
+                if (markLearnedBtn) {
+                    markLearnedBtn.innerHTML = '<i class="fas fa-check-double"></i> 已学习';
+                    markLearnedBtn.classList.add('btn-secondary');
+                    markLearnedBtn.classList.remove('btn-primary');
+                    markLearnedBtn.disabled = true;
+                }
+
+                // 更新缓存的学习进度
+                this.updateLocalProgress(this.currentKnowledge._id, 'learned');
+
+                // 如果有知识点列表，更新显示状态
+                this.updateKnowledgeItemStatus(this.currentKnowledge._id, true);
+            } else {
+                this.showMessage(data.message || '标记失败', 'error');
+            }
+        } catch (error) {
+            console.error('标记已学失败:', error);
+            this.showMessage('网络错误，请重试', 'error');
+        } finally {
+            this.setButtonLoading(markLearnedBtn, false);
+        }
+    }
+
+    // 更新本地学习进度
+    updateLocalProgress(pointId, status) {
+        if (!this.learningProgress) {
+            this.learningProgress = {};
+        }
+
+        this.learningProgress[pointId] = {
+            ...this.learningProgress[pointId],
+            status: status,
+            last_studied_at: new Date().toISOString()
+        };
+
+        // 保存到localStorage
+        this.saveProgressToCloud();
+    }
+
+    // 保存进度到localStorage (本地缓存)
+    saveProgress() {
+        try {
+            localStorage.setItem('taxLearningProgress', JSON.stringify(this.learningProgress));
+        } catch (error) {
+            console.error('保存进度失败:', error);
+        }
+    }
+
+    // 从localStorage加载进度
+    loadProgress() {
+        try {
+            const saved = localStorage.getItem('taxLearningProgress');
+            return saved ? JSON.parse(saved) : {};
+        } catch (error) {
+            console.error('加载进度失败:', error);
+            return {};
+        }
+    }
+
+    // 同步进度到云端
+    async saveProgressToCloud() {
+        // 这里已经在markAsLearned中通过API调用实现了云端同步
+        // 本地缓存只是作为备份
+        this.saveProgress();
+    }
+
+    // 从云端加载用户学习进度
+    async loadUserProgress() {
+        if (!this.currentUser) return;
+
+        try {
+            this.updateSyncStatus(true);
+            const response = await this.makeAPIRequest('/user/progress');
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // 更新本地进度缓存
+                    const progress = {};
+                    data.data.learning_progress.forEach(item => {
+                        progress[item.point_id] = item;
+                    });
+                    this.learningProgress = progress;
+                    this.saveProgress(); // 保存到本地
+
+                    console.log('✅ 学习进度同步成功');
+                }
+            }
+        } catch (error) {
+            console.error('加载学习进度失败:', error);
+        } finally {
+            this.updateSyncStatus(false);
+        }
+    }
+
+    // 更新知识点列表中的状态显示
+    updateKnowledgeItemStatus(pointId, isLearned) {
+        const knowledgeItem = document.querySelector(`[data-point-id="${pointId}"]`);
+        if (knowledgeItem) {
+            const statusElement = knowledgeItem.querySelector('.status');
+            if (statusElement) {
+                if (isLearned) {
+                    knowledgeItem.classList.add('learned');
+                    statusElement.classList.add('learned');
+                    statusElement.innerHTML = '<i class="fas fa-check-circle"></i> 已学';
+                } else {
+                    knowledgeItem.classList.remove('learned');
+                    statusElement.classList.remove('learned');
+                    statusElement.innerHTML = '<i class="fas fa-circle"></i> 未学';
+                }
+            }
+        }
     }
 
     initQuizPage() {

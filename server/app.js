@@ -11,6 +11,7 @@ const { connectDb, closeDb } = require('./db');
 // 导入路由
 const knowledgeRoutes = require('./routes/knowledge');
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
 
 // 创建Express应用
 const app = express();
@@ -26,6 +27,7 @@ app.use(express.urlencoded({ extended: true })); // URL编码解析
 // API路由
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
 
 // 健康检查接口
 app.get('/health', (req, res) => {
