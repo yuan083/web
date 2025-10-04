@@ -60,16 +60,41 @@ router.post('/register', async (req, res, next) => {
 router.post('/login', async (req, res, next) => {
   try {
      const { phone, password } = req.body;
+     console.log('🔍 Login attempt:', { phone, password: password ? '[PROVIDED]' : '[MISSING]' });
      const db = getDb();
 
      // 1. 查找用户
      const user = await db.collection('users').findOne({ phone: phone });
      if (!user) {
+       console.log('❌ User not found:', phone);
        return res.status(401).json({ success: false, message: "手机号或密码错误" });
      }
 
-     // 2. 验证密码
-     const isMatch = await bcrypt.compare(password, user.password);
+     console.log('👤 User found:', { phone, hasPassword: !!user.password, passwordType: typeof user.password });
+
+     // 2. 验证密码 - 添加防御性检查
+     if (!password || !user.password) {
+       console.log('❌ Missing password for comparison:', {
+         hasPassword: !!password,
+         hasUserPassword: !!user.password
+       });
+       return res.status(401).json({ success: false, message: "手机号或密码错误" });
+     }
+
+     let isMatch = false;
+     try {
+       isMatch = await bcrypt.compare(password, user.password);
+     } catch (compareError) {
+       console.error('❌ bcrypt comparison error:', compareError);
+       console.log('❌ Password comparison failed:', {
+         passwordType: typeof password,
+         userPasswordType: typeof user.password,
+         passwordLength: password ? password.length : 'null',
+         userPasswordLength: user.password ? user.password.length : 'null'
+       });
+       return res.status(401).json({ success: false, message: "手机号或密码错误" });
+     }
+
      if (!isMatch) {
        return res.status(401).json({ success: false, message: "手机号或密码错误" });
      }

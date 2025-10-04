@@ -131,6 +131,7 @@ class TaxLearningApp {
         this.setButtonLoading(loginBtn, true);
 
         try {
+            console.log('🔍 Attempting login with:', { phone, password: password ? '[PROVIDED]' : '[MISSING]' });
             const response = await fetch(`${this.API_BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
@@ -139,29 +140,53 @@ class TaxLearningApp {
                 body: JSON.stringify({ phone, password })
             });
 
+            console.log('🔍 Login response status:', response.status);
+            console.log('🔍 Login response headers:', response.headers);
+
+            // 检查HTTP状态码
+            if (!response.ok) {
+                console.error('❌ Login failed with status:', response.status);
+                const errorData = await response.json();
+                this.showFormError('login-password', errorData.message || '登录失败');
+                return;
+            }
+
             const data = await response.json();
+            console.log('✅ Login response data:', data);
 
             if (data.success) {
+                console.log('✅ Login successful, setting user data:', data.user);
                 this.currentUser = data.user;
                 this.authToken = data.token;
+
+                console.log('✅ User data set:', this.currentUser);
+                console.log('✅ Token set:', this.authToken ? 'Present' : 'Missing');
 
                 // 保存到本地存储
                 localStorage.setItem('authToken', this.authToken);
                 localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
 
+                console.log('✅ Saved to localStorage');
+
                 this.showAuthenticatedUI();
                 this.showMessage('登录成功！', 'success');
+
+                console.log('✅ About to load user progress...');
 
                 // 加载用户学习进度
                 this.loadUserProgress();
 
+                console.log('✅ About to switch to learning page...');
                 this.switchPage('learning');
+                console.log('✅ About to load topics...');
                 this.loadTopics();
+                console.log('✅ Login process completed successfully');
             } else {
-                this.showFormError('login-password', data.message);
+                console.error('❌ Login failed - data.success is false:', data);
+                this.showFormError('login-password', data.message || '登录失败');
             }
         } catch (error) {
-            console.error('登录失败:', error);
+            console.error('❌ 登录失败:', error);
             this.showFormError('login-password', '网络错误，请重试');
         } finally {
             this.setButtonLoading(loginBtn, false);
@@ -318,6 +343,51 @@ class TaxLearningApp {
         formGroup.appendChild(errorDiv);
     }
 
+    // 显示通用消息
+    showMessage(message, type = 'info') {
+        console.log(`✅ Showing message: ${message} (${type})`);
+
+        // 创建消息元素
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message-popup message-${type}`;
+
+        // 根据类型设置图标
+        let icon = '';
+        switch(type) {
+            case 'success':
+                icon = '<i class="fas fa-check-circle"></i> ';
+                break;
+            case 'error':
+                icon = '<i class="fas fa-exclamation-circle"></i> ';
+                break;
+            case 'warning':
+                icon = '<i class="fas fa-exclamation-triangle"></i> ';
+                break;
+            default:
+                icon = '<i class="fas fa-info-circle"></i> ';
+        }
+
+        messageDiv.innerHTML = `${icon}${message}`;
+
+        // 添加到页面
+        document.body.appendChild(messageDiv);
+
+        // 显示动画
+        setTimeout(() => {
+            messageDiv.classList.add('show');
+        }, 100);
+
+        // 自动隐藏
+        setTimeout(() => {
+            messageDiv.classList.remove('show');
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 300);
+        }, 3000);
+    }
+
     // 设置按钮加载状态
     setButtonLoading(button, isLoading) {
         if (isLoading) {
@@ -399,8 +469,13 @@ class TaxLearningApp {
 
     // 页面切换
     switchPage(page) {
+        console.log('🔄 switchPage called with:', page);
+        console.log('🔄 Current user:', this.currentUser);
+        console.log('🔄 Current page before switch:', this.currentPage);
+
         // 检查是否需要登录
         if (page !== 'login' && !this.currentUser) {
+            console.log('❌ User not logged in, showing login page');
             this.showLoginPage();
             this.showMessage('请先登录', 'error');
             return;
@@ -414,22 +489,33 @@ class TaxLearningApp {
 
         // 切换页面内容
         this.hideAllPages();
-        document.getElementById(`${page}-page`).classList.add('active');
+        const targetPage = document.getElementById(`${page}-page`);
+        if (targetPage) {
+            targetPage.classList.add('active');
+            console.log(`✅ Successfully switched to page: ${page}-page`);
+        } else {
+            console.error(`❌ Target page not found: ${page}-page`);
+        }
 
         this.currentPage = page;
 
         // 页面特定逻辑
         switch(page) {
             case 'learning':
+                console.log('📚 Loading topics for learning page...');
                 this.loadTopics();
                 break;
             case 'quiz':
+                console.log('📝 Initializing quiz page...');
                 this.initQuizPage();
                 break;
             case 'progress':
+                console.log('📊 Loading progress page...');
                 this.loadProgressPage();
                 break;
         }
+
+        console.log('✅ Page switch completed');
     }
 
     hideAllPages() {
@@ -1484,3 +1570,164 @@ class TaxLearningApp {
 
 // 初始化应用
 const app = new TaxLearningApp();
+
+// =======================================
+// 樱花飘落特效JavaScript
+// =======================================
+
+class SakuraEffect {
+    constructor() {
+        this.container = document.getElementById('sakura-container');
+        this.petals = [];
+        this.maxPetals = 20;
+        this.init();
+    }
+
+    init() {
+        // 创建初始樱花花瓣
+        for (let i = 0; i < this.maxPetals; i++) {
+            setTimeout(() => {
+                this.createPetal();
+            }, i * 1000);
+        }
+
+        // 定期添加新的樱花花瓣
+        setInterval(() => {
+            if (this.petals.length < this.maxPetals) {
+                this.createPetal();
+            }
+        }, 3000);
+
+        // 清理完成动画的花瓣
+        setInterval(() => {
+            this.cleanupPetals();
+        }, 10000);
+    }
+
+    createPetal() {
+        const petal = document.createElement('div');
+        petal.className = 'sakura-petal';
+
+        // 随机位置和动画参数
+        const startPosition = Math.random() * 100;
+        const animationDuration = 8 + Math.random() * 6; // 8-14秒
+        const swayDuration = 2 + Math.random() * 2; // 2-4秒
+        const size = 10 + Math.random() * 10; // 10-20px
+
+        petal.style.left = startPosition + '%';
+        petal.style.animationDuration = `${animationDuration}s, ${swayDuration}s`;
+        petal.style.width = size + 'px';
+        petal.style.height = size + 'px';
+
+        // 添加光泽效果
+        const shimmer = document.createElement('div');
+        shimmer.style.position = 'absolute';
+        shimmer.style.top = '20%';
+        shimmer.style.left = '20%';
+        shimmer.style.width = '30%';
+        shimmer.style.height = '30%';
+        shimmer.style.background = 'rgba(255, 255, 255, 0.8)';
+        shimmer.style.borderRadius = '50%';
+        petal.appendChild(shimmer);
+
+        this.container.appendChild(petal);
+        this.petals.push(petal);
+
+        // 动画结束后移除花瓣
+        setTimeout(() => {
+            if (petal.parentNode) {
+                petal.parentNode.removeChild(petal);
+            }
+            const index = this.petals.indexOf(petal);
+            if (index > -1) {
+                this.petals.splice(index, 1);
+            }
+        }, animationDuration * 1000);
+    }
+
+    cleanupPetals() {
+        // 清理已移除的花瓣引用
+        this.petals = this.petals.filter(petal => petal.parentNode);
+    }
+
+    // 暴风雨效果（增加花瓣数量）
+    storm() {
+        const stormCount = 10;
+        for (let i = 0; i < stormCount; i++) {
+            setTimeout(() => {
+                this.createPetal();
+            }, i * 200);
+        }
+    }
+
+    // 停止效果
+    stop() {
+        this.petals.forEach(petal => {
+            if (petal.parentNode) {
+                petal.parentNode.removeChild(petal);
+            }
+        });
+        this.petals = [];
+    }
+}
+
+// 页面加载完成后初始化樱花效果
+document.addEventListener('DOMContentLoaded', () => {
+    const sakuraEffect = new SakuraEffect();
+
+    // 点击页面任意位置触发樱花暴风雨
+    document.addEventListener('click', (e) => {
+        // 避免点击按钮时触发
+        if (!e.target.closest('button') && !e.target.closest('input')) {
+            sakuraEffect.storm();
+        }
+    });
+
+    // 添加樱花特效到全局作用域，方便调试
+    window.sakuraEffect = sakuraEffect;
+});
+
+// 增强用户界面的樱花主题装饰
+document.addEventListener('DOMContentLoaded', () => {
+    // 为页面标题添加樱花装饰
+    const addSakuraDecoration = (element) => {
+        if (element && !element.querySelector('.sakura-decoration')) {
+            const decoration = document.createElement('span');
+            decoration.className = 'sakura-decoration';
+            decoration.textContent = '🌸';
+            decoration.style.position = 'absolute';
+            decoration.style.top = '-10px';
+            decoration.style.right = '-10px';
+            element.style.position = 'relative';
+            element.appendChild(decoration);
+        }
+    };
+
+    // 为所有卡片添加樱花悬停效果
+    const cards = document.querySelectorAll('.card, .overview-card, .login-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.classList.add('sakura-special');
+        });
+        card.addEventListener('mouseleave', () => {
+            card.classList.remove('sakura-special');
+        });
+    });
+
+    // 添加樱花主题的季节性问候
+    const seasonMessages = [
+        "🌸 春日学习，樱花盛开 🌸",
+        "📚 在樱花飘落中汲取知识 📚",
+        "💗 温柔的学习时光 💗",
+        "🌺 优雅地进步每一天 🌺"
+    ];
+
+    // 随机显示季节性消息
+    const showSeasonalMessage = () => {
+        const message = seasonMessages[Math.floor(Math.random() * seasonMessages.length)];
+        console.log(message);
+    };
+
+    // 每分钟显示一次季节性消息
+    setInterval(showSeasonalMessage, 60000);
+});
