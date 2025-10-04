@@ -9,7 +9,9 @@
     "init-db": "mongosh < scripts/init-database.js",
     "create-indexes": "mongosh < scripts/create-indexes.js",
     "test-db": "mongosh < scripts/test-queries.js",
-    "reset-db": "mongosh --eval 'use tax_learning_platform; db.dropDatabase(); print(\"数据库已重置\")' && npm run init-db && npm run create-indexes"
+    "reset-db": "mongosh --eval 'use tax_learning_platform; db.dropDatabase(); print(\"数据库已重置\")' && npm run init-db && npm run create-indexes",
+    "test-api": "curl http://localhost:9365/health",
+    "test-knowledge": "curl http://localhost:9365/api/knowledge/环境保护税/概念和征税范围"
   },
   "keywords": [
     "tax",
