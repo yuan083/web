@@ -96,7 +96,7 @@ This is a Chinese tax learning H5 application that implements a spaced repetitio
 ### Current Port Assignments:
 - **9365** - Main API Server (Express.js)
 - **9366** - Future: Development API Server
-- **9367** - Future: Testing API Server
+- **9367** - Frontend Development Server (Static files)
 - **9370** - Future: WebSocket Server (real-time features)
 - **9380** - Future: Admin Dashboard
 - **9390** - Future: Analytics Service
@@ -139,25 +139,27 @@ npm run dev
 # Start production server
 npm run start
 
-# Test server health
-curl http://localhost:9365/health
+# Start full development environment (API + Frontend)
+npm run dev:full
+
+# Start frontend only (port 9367)
+npm run start-frontend
 ```
 
 ### API Testing
 ```bash
-# Get knowledge points
+# Test server health
+npm run test-api
+
+# Test knowledge endpoint
+npm run test-knowledge
+
+# Manual API testing
+curl http://localhost:9365/health
 curl http://localhost:9365/api/knowledge/环境保护税/概念和征税范围
-
-# Get single knowledge point
 curl http://localhost:9365/api/knowledge/point/{ID}
-
-# Get related quizzes
 curl http://localhost:9365/api/knowledge/point/{ID}/quizzes
-
-# Get all topics
 curl http://localhost:9365/api/knowledge/topics
-
-# Search knowledge
 curl "http://localhost:9365/api/knowledge/search?q=纳税人"
 ```
 
@@ -242,16 +244,3 @@ CORS_ORIGIN=http://localhost:3000
 - [ ] Container orchestration
 - [ ] CDN integration
 - [ ] Multi-region deployment
-
-## Important Instructions
-
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
-
-# important-instruction-reminders
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
