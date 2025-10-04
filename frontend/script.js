@@ -9,6 +9,7 @@ class TaxLearningApp {
         this.quizData = [];
         this.currentQuestionIndex = 0;
         this.userAnswers = [];
+        this.topicsData = []; //  用于缓存税种数据
 
         // 用户认证相关
         this.currentUser = null;
@@ -485,6 +486,7 @@ class TaxLearningApp {
     }
 
     renderTopics(topics) {
+        this.topicsData = topics; // 缓存主题数据以备后用
         const topicGrid = document.getElementById('topic-grid');
         if (!topicGrid) return;
 
@@ -516,40 +518,157 @@ class TaxLearningApp {
         });
     }
 
-    // 其他方法保持原来的实现...
-    // (为了节省空间，其他方法如loadTopicChapters, renderChapters等保持不变)
+    // 加载并渲染指定主题的章节列表
+    async loadTopicChapters(topicName) {
+        this.currentTopic = topicName;
+        // 从已缓存的数据中查找，避免重复API调用
+        const topicData = this.topicsData.find(t => t.name === topicName);
 
-    showError(message) {
-        this.showMessage(message, 'error');
-    }
-
-    showMessage(message, type = 'info') {
-        // 创建消息元素
-        const messageDiv = document.createElement('div');
-        messageDiv.className = type;
-        messageDiv.innerHTML = `
-            <h4><i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i> 提示</h4>
-            <p>${message}</p>
-        `;
-
-        // 插入到页面顶部
-        const mainContent = document.querySelector('.main-content');
-        if (mainContent) {
-            mainContent.insertBefore(messageDiv, mainContent.firstChild);
-
-            // 3秒后自动移除
-            setTimeout(() => {
-                if (messageDiv.parentNode) {
-                    messageDiv.parentNode.removeChild(messageDiv);
-                }
-            }, 3000);
+        if (topicData && topicData.chapters) {
+            this.renderChapters(topicData.chapters);
+            this.showChapterContent(); // 切换到章节视图
+        } else {
+            console.error(`在缓存中未找到主题 '${topicName}' 的章节数据`);
+            this.showError('加载章节列表失败');
         }
     }
 
-    // 占位方法，需要在完整实现中添加
-    async loadTopicChapters(topicName) {
-        console.log('加载章节:', topicName);
-        this.showMessage('章节加载功能开发中...', 'info');
+    // 渲染章节列表
+    renderChapters(chapters) {
+        const knowledgeList = document.getElementById('knowledge-list');
+        const chapterTitle = document.getElementById('chapter-title');
+        if (!knowledgeList || !chapterTitle) return;
+
+        chapterTitle.textContent = `${this.currentTopic} - 章节列表`;
+
+        knowledgeList.innerHTML = chapters.map(chapter => `
+            <div class="knowledge-item" data-chapter="${chapter.name}">
+                <h4>
+                    <span>${chapter.name}</span>
+                    <div class="status">
+                        <i class="fas fa-book-open"></i>
+                        ${chapter.count} 个知识点
+                    </div>
+                </h4>
+                <div class="preview">
+                    学习 ${chapter.name} 的相关知识点
+                </div>
+            </div>
+        `).join('');
+
+        // 为新渲染的章节列表项绑定点击事件
+        knowledgeList.querySelectorAll('.knowledge-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const chapter = item.dataset.chapter;
+                this.loadChapterKnowledge(chapter);
+            });
+        });
+    }
+
+    async loadChapterKnowledge(chapterName) {
+        this.currentChapter = chapterName;
+        console.log(`正在加载知识点: ${this.currentTopic} - ${chapterName}`);
+        this.updateSyncStatus(true);
+
+        try {
+            const response = await this.makeAPIRequest(`/knowledge/${encodeURIComponent(this.currentTopic)}/${encodeURIComponent(chapterName)}`);
+            if (!response.ok) throw new Error('获取知识点列表失败');
+
+            const data = await response.json();
+            this.renderKnowledgePoints(data.data.points);
+            this.updateSyncStatus(false);
+        } catch (error) {
+            console.error('加载知识点列表失败:', error);
+            this.showError('加载知识点列表失败');
+            this.updateSyncStatus(false);
+        }
+    }
+
+    // 渲染知识点列表
+    renderKnowledgePoints(points) {
+        const knowledgeList = document.getElementById('knowledge-list');
+        const chapterTitle = document.getElementById('chapter-title');
+        if (!knowledgeList || !chapterTitle) return;
+
+        chapterTitle.textContent = `${this.currentTopic} - ${this.currentChapter}`;
+
+        knowledgeList.innerHTML = points.map(point => {
+            // TODO: 将来从用户进度中获取状态
+            const isLearned = false; 
+            const statusClass = isLearned ? 'learned' : '';
+            const statusIcon = isLearned ? 'fa-check-circle' : 'fa-circle';
+
+            return `
+                <div class="knowledge-item ${statusClass}" data-point-id="${point._id}">
+                    <h4>
+                        <span>${point.sub_topic}</span>
+                        <div class="status ${statusClass}">
+                            <i class="fas ${statusIcon}"></i>
+                            ${isLearned ? '已学' : '未学'}
+                        </div>
+                    </h4>
+                    <div class="preview">
+                        ${point.content.substring(0, 100)}...
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // 绑定点击事件
+        knowledgeList.querySelectorAll('.knowledge-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const pointId = item.dataset.pointId;
+                this.loadKnowledgeDetail(pointId);
+            });
+        });
+    }
+
+    // 加载并渲染知识点详情
+    async loadKnowledgeDetail(pointId) {
+        this.updateSyncStatus(true);
+        try {
+            const response = await this.makeAPIRequest(`/knowledge/point/${pointId}`);
+            if (!response.ok) throw new Error('获取知识点详情失败');
+
+            const data = await response.json();
+            this.currentKnowledge = data.data;
+            this.renderKnowledgeDetail(this.currentKnowledge);
+            this.showKnowledgeDetail(); // 切换到详情视图
+            this.updateSyncStatus(false);
+        } catch (error) {
+            console.error('加载知识点详情失败:', error);
+            this.showError('加载知识点详情失败');
+            this.updateSyncStatus(false);
+        }
+    }
+
+    // 渲染知识点详情
+    renderKnowledgeDetail(knowledge) {
+        const knowledgeTitle = document.getElementById('knowledge-title');
+        const knowledgeContent = document.getElementById('knowledge-content');
+        const keyPointsList = document.getElementById('key-points-list');
+
+        if (!knowledgeTitle || !knowledgeContent || !keyPointsList) return;
+
+        knowledgeTitle.textContent = knowledge.sub_topic;
+        knowledgeContent.textContent = knowledge.content;
+
+        const keyPointsSection = document.querySelector('.key-points-section');
+        if (knowledge.key_points && Array.isArray(knowledge.key_points) && knowledge.key_points.length > 0) {
+            keyPointsList.innerHTML = knowledge.key_points.map(point => `<li>${point}</li>`).join('');
+            keyPointsSection.style.display = 'block';
+        } else {
+            keyPointsList.innerHTML = '';
+            keyPointsSection.style.display = 'none';
+        }
+
+        // TODO: 将来根据用户学习进度更新按钮状态
+        const markLearnedBtn = document.getElementById('mark-learned-btn');
+        if (markLearnedBtn) {
+            markLearnedBtn.innerHTML = '<i class="fas fa-check"></i> 标记已学';
+            markLearnedBtn.classList.remove('btn-secondary');
+            markLearnedBtn.classList.add('btn-primary');
+        }
     }
 
     showTopicSelection() {
