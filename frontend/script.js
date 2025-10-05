@@ -52,6 +52,8 @@ class TaxLearningApp {
         // 消息显示
         this.showMessage = this.showMessage.bind(this);
         this.showError = this.showError.bind(this);
+        this.setLoading = this.setLoading.bind(this);
+        this.updateProfileUI = this.updateProfileUI.bind(this);
 
         // --- 会话模式核心方法绑定 ---
         this.initSessionPage = this.initSessionPage.bind(this);
@@ -3007,13 +3009,22 @@ class TaxLearningApp {
 
     // 加载测试题目 - 支持多题型
     loadQuizQuestion() {
-        if (!this.currentQuizzes || this.currentQuizIndex >= this.currentQuizzes.length) {
-            // 测试完成
+        // 健壮性检查：确保quizzes数组存在且索引有效
+        if (!this.currentQuizzes || this.currentQuizIndex >= this.currentQuizzes.length || this.currentQuizIndex < 0) {
+            console.log('✅ Quiz completed or invalid quiz index');
             this.completeKnowledgeQuiz();
             return;
         }
 
+        // 健壮性检查：确保当前quiz存在
         const quiz = this.currentQuizzes[this.currentQuizIndex];
+        if (!quiz) {
+            console.error("Load quiz failed: current quiz is undefined at index", this.currentQuizIndex);
+            this.showMessage('题目加载失败', 'error');
+            this.nextQuestion(); // 跳到下一题
+            return;
+        }
+
         console.log('📝 Loading quiz question:', quiz);
 
         // 更新题目进度
@@ -3079,6 +3090,36 @@ class TaxLearningApp {
 
     // 标准化题型名称
     normalizeQuizType(type) {
+        // 处理MongoDB聚合操作符格式
+        if (typeof type === 'object' && type !== null) {
+            // 如果是 {$switch: {...}} 格式，尝试从中提取实际类型
+            if (type.$switch && type.$switch.branches) {
+                // 查找第一个匹配的分支的then值
+                for (const branch of type.$switch.branches) {
+                    if (branch.then && typeof branch.then === 'string') {
+                        type = branch.then;
+                        break;
+                    }
+                }
+                // 如果没找到，使用默认值
+                if (typeof type === 'object' && type.$switch && type.$switch.default) {
+                    type = type.$switch.default;
+                }
+            } else if (type.type && typeof type.type === 'string') {
+                // 如果是 {type: "..."} 格式
+                type = type.type;
+            } else {
+                // 其他对象格式，转换为字符串
+                type = JSON.stringify(type);
+            }
+        }
+
+        // 确保type是字符串
+        if (typeof type !== 'string') {
+            console.warn('Invalid quiz type format:', type, 'defaulting to multiple_choice');
+            return 'multiple_choice';
+        }
+
         const typeMap = {
             'single_choice': 'multiple_choice',
             'multiple_choice': 'multiple_response',
@@ -3377,7 +3418,14 @@ class TaxLearningApp {
 
     // 验证答案格式
     validateAnswer() {
-        const quiz = this.currentQuizzes[this.currentQuizIndex];
+        // 健壮性检查：确保当前quiz存在
+        const quiz = this.currentQuizzes?.[this.currentQuizIndex];
+        if (!quiz) {
+            console.error("Validation failed: current quiz is not available.");
+            this.showMessage('当前没有题目，无法验证答案', 'error');
+            return false;
+        }
+
         const quizType = this.normalizeQuizType(quiz.quizType || quiz.type || 'multiple_choice');
 
         if (!this.currentSelectedAnswer) {
@@ -3483,8 +3531,16 @@ class TaxLearningApp {
 
     // 跳过题目
     skipQuestion() {
+        // 健壮性检查：确保当前quiz存在
+        const quiz = this.currentQuizzes?.[this.currentQuizIndex];
+        if (!quiz) {
+            console.error("Skip failed: current quiz is not available.");
+            this.showMessage('当前没有题目可跳过', 'error');
+            return;
+        }
+
         this.currentQuizAnswers.push({
-            quizId: this.currentQuizzes[this.currentQuizIndex]._id,
+            quizId: quiz._id,
             userAnswer: null,
             isCorrect: false,
             skipped: true

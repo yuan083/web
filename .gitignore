@@ -136,3 +136,7 @@ logs
 # Temporary files
 tmp/
 temp/
+
+# Custom
+*.backup
+test-token.json
