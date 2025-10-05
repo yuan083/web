@@ -6,6 +6,7 @@
     <title>🌸 税务学习平台 - 樱花版 🌸</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <!-- 樱花飘落特效 -->
@@ -34,6 +35,10 @@
                     <button class="nav-btn" data-page="progress">
                         <i class="fas fa-chart-line"></i>
                         <span>进度</span>
+                    </button>
+                    <button class="nav-btn" data-page="profile">
+                        <i class="fas fa-user"></i>
+                        <span>个人</span>
                     </button>
                 </nav>
                 <div class="user-menu" id="user-menu" style="display: none;">
@@ -134,61 +139,221 @@
                 </div>
             </div>
 
-            <!-- 学习页面 -->
+            <!-- 学习页面 - 会话模式 -->
             <div id="learning-page" class="page">
-                <!-- 税种选择 -->
-                <div class="topic-selection">
-                    <h2>选择税种</h2>
-                    <div class="topic-grid" id="topic-grid">
-                        <!-- 动态加载税种 -->
+                <!-- 会话开始界面 -->
+                <div class="session-start" id="session-start">
+                    <div class="session-start-card">
+                        <div class="session-header">
+                            <h2>
+                                <i class="fas fa-brain"></i>
+                                智能学习会话
+                                <i class="fas fa-brain"></i>
+                            </h2>
+                            <p>基于间隔重复算法的高效学习体验</p>
+                        </div>
+
+                        <div class="session-options">
+                            <div class="session-stats" id="session-stats">
+                                <div class="stat-card">
+                                    <i class="fas fa-fire"></i>
+                                    <span class="stat-label">连续学习</span>
+                                    <span class="stat-value" id="streak-days">0天</span>
+                                </div>
+                                <div class="stat-card">
+                                    <i class="fas fa-clock"></i>
+                                    <span class="stat-label">待复习</span>
+                                    <span class="stat-value" id="due-count">0</span>
+                                </div>
+                                <div class="stat-card">
+                                    <i class="fas fa-trophy"></i>
+                                    <span class="stat-label">已掌握</span>
+                                    <span class="stat-value" id="mastered-count">0</span>
+                                </div>
+                            </div>
+
+                            <div class="session-modes">
+                                <button class="session-mode-btn primary" id="start-daily-session">
+                                    <i class="fas fa-sun"></i>
+                                    <div class="mode-info">
+                                        <h3>每日学习</h3>
+                                        <p>复习到期内容 + 学习新知识</p>
+                                    </div>
+                                </button>
+                                <button class="session-mode-btn secondary" id="start-review-session">
+                                    <i class="fas fa-redo"></i>
+                                    <div class="mode-info">
+                                        <h3>专注复习</h3>
+                                        <p>仅复习已学过的内容</p>
+                                    </div>
+                                </button>
+                                <button class="session-mode-btn tertiary" id="start-new-session">
+                                    <i class="fas fa-plus"></i>
+                                    <div class="mode-info">
+                                        <h3>学习新知</h3>
+                                        <p>专注于新的知识点</p>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 章节内容 -->
-                <div class="chapter-content" id="chapter-content" style="display: none;">
-                    <div class="chapter-header">
-                        <button class="back-btn" id="back-to-topics">
-                            <i class="fas fa-arrow-left"></i>
-                            返回
-                        </button>
-                        <h2 id="chapter-title">章节标题</h2>
+                <!-- 会话进行界面 -->
+                <div class="session-active" id="session-active" style="display: none;">
+                    <!-- 会话进度条 -->
+                    <div class="session-progress">
+                        <div class="progress-info">
+                            <span class="session-mode" id="current-session-mode">每日学习</span>
+                            <span class="session-counter">
+                                <span id="session-current">1</span> / <span id="session-total">10</span>
+                            </span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="session-progress-fill" style="width: 10%"></div>
+                        </div>
+                        <div class="session-timer">
+                            <i class="fas fa-stopwatch"></i>
+                            <span id="session-timer">00:00</span>
+                        </div>
                     </div>
 
-                    <!-- 知识点列表 -->
-                    <div class="knowledge-list" id="knowledge-list">
-                        <!-- 动态加载知识点 -->
+                    <!-- 学习内容区域 -->
+                    <div class="session-content">
+                        <!-- 知识点学习卡片 -->
+                        <div class="knowledge-card" id="knowledge-card">
+                            <div class="card-header">
+                                <span class="knowledge-topic" id="card-topic">环境保护税</span>
+                                <span class="card-status" id="card-status">新学习</span>
+                            </div>
+
+                            <div class="card-content">
+                                <h3 class="knowledge-title" id="knowledge-title">纳税人</h3>
+
+                                <div class="knowledge-content" id="knowledge-content">
+                                    <div class="content-text" id="content-text"></div>
+
+                                    <div class="key-points" id="key-points" style="display: none;">
+                                        <h4>关键要点</h4>
+                                        <ul id="key-points-list"></ul>
+                                    </div>
+
+                                    <div class="comparison-section" id="comparison-section" style="display: none;">
+                                        <h4>对比说明</h4>
+                                        <div class="comparison-table" id="comparison-table"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-actions">
+                                <button class="btn btn-outline" id="show-details-btn">
+                                    <i class="fas fa-eye"></i>
+                                    显示详情
+                                </button>
+                                <button class="btn btn-outline" id="show-quiz-btn">
+                                    <i class="fas fa-question-circle"></i>
+                                    测试理解
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 测试题目卡片 -->
+                        <div class="quiz-card" id="quiz-card" style="display: none;">
+                            <div class="quiz-header">
+                                <h3>测试理解</h3>
+                                <div class="quiz-progress">
+                                    <span id="quiz-question-text">题目 1/3</span>
+                                </div>
+                            </div>
+
+                            <div class="quiz-content">
+                                <div class="question-text" id="question-text"></div>
+                                <div class="options-container" id="options-container"></div>
+                            </div>
+
+                            <div class="quiz-feedback" id="quiz-feedback" style="display: none;">
+                                <div class="feedback-icon" id="feedback-icon"></div>
+                                <div class="feedback-text" id="feedback-text"></div>
+                            </div>
+
+                            <div class="quiz-actions">
+                                <button class="btn btn-outline" id="skip-question-btn">
+                                    <i class="fas fa-forward"></i>
+                                    跳过
+                                </button>
+                                <button class="btn btn-primary" id="submit-answer-btn">
+                                    <i class="fas fa-check"></i>
+                                    提交答案
+                                </button>
+                                <button class="btn btn-success" id="next-question-btn" style="display: none;">
+                                    <i class="fas fa-arrow-right"></i>
+                                    下一题
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 会话控制按钮 -->
+                    <div class="session-controls">
+                        <button class="control-btn secondary" id="pause-session-btn">
+                            <i class="fas fa-pause"></i>
+                            暂停
+                        </button>
+                        <button class="control-btn primary" id="continue-session-btn">
+                            <i class="fas fa-arrow-right"></i>
+                            继续
+                        </button>
+                        <button class="control-btn danger" id="end-session-btn">
+                            <i class="fas fa-stop"></i>
+                            结束
+                        </button>
                     </div>
                 </div>
 
-                <!-- 知识点详情 -->
-                <div class="knowledge-detail" id="knowledge-detail" style="display: none;">
-                    <div class="detail-header">
-                        <button class="back-btn" id="back-to-chapter">
-                            <i class="fas fa-arrow-left"></i>
-                            返回
-                        </button>
-                        <h3 id="knowledge-title">知识点标题</h3>
-                    </div>
-
-                    <div class="detail-content">
-                        <div class="content-section">
-                            <h4>核心内容</h4>
-                            <div id="knowledge-content" class="content-text"></div>
+                <!-- 会话结束界面 -->
+                <div class="session-complete" id="session-complete" style="display: none;">
+                    <div class="complete-card">
+                        <div class="complete-header">
+                            <div class="success-animation">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <h2>会话完成！</h2>
+                            <p>恭喜完成本次学习会话</p>
                         </div>
 
-                        <div class="key-points-section">
-                            <h4>关键要点</h4>
-                            <ul id="key-points-list" class="key-points-list"></ul>
+                        <div class="session-summary">
+                            <div class="summary-stats">
+                                <div class="summary-stat">
+                                    <span class="stat-number" id="completed-count">0</span>
+                                    <span class="stat-label">完成学习</span>
+                                </div>
+                                <div class="summary-stat">
+                                    <span class="stat-number" id="correct-count">0</span>
+                                    <span class="stat-label">答题正确</span>
+                                </div>
+                                <div class="summary-stat">
+                                    <span class="stat-number" id="time-spent">0分钟</span>
+                                    <span class="stat-label">学习时长</span>
+                                </div>
+                                <div class="summary-stat">
+                                    <span class="stat-number" id="points-gained">0</span>
+                                    <span class="stat-label">获得积分</span>
+                                </div>
+                            </div>
+
+                            <div class="achievements" id="achievements">
+                                <!-- 动态生成成就徽章 -->
+                            </div>
                         </div>
 
-                        <div class="action-buttons">
-                            <button class="btn btn-primary" id="start-quiz-btn">
-                                <i class="fas fa-play"></i>
-                                开始练习
+                        <div class="complete-actions">
+                            <button class="btn btn-primary" id="start-new-session-btn">
+                                <i class="fas fa-redo"></i>
+                                开始新会话
                             </button>
-                            <button class="btn btn-secondary" id="mark-learned-btn">
-                                <i class="fas fa-check"></i>
-                                标记已学
+                            <button class="btn btn-secondary" id="view-progress-btn">
+                                <i class="fas fa-chart-line"></i>
+                                查看进度
                             </button>
                         </div>
                     </div>
@@ -235,6 +400,235 @@
                         <h3>详细进度</h3>
                         <div id="progress-list" class="progress-list">
                             <!-- 动态加载进度 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 个人中心页面 -->
+            <div id="profile-page" class="page">
+                <div class="profile-container">
+                    <!-- 用户信息卡片 -->
+                    <div class="profile-card">
+                        <div class="profile-header">
+                            <div class="user-avatar">
+                                <div class="avatar-circle">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="level-badge">
+                                    <span>Lv.1</span>
+                                </div>
+                            </div>
+                            <div class="user-details">
+                                <h2 id="profile-nickname">用户昵称</h2>
+                                <p id="profile-phone">156****7927</p>
+                                <div class="study-info">
+                                    <span class="join-date">加入时间：2024-01-01</span>
+                                    <span class="study-days">连续学习：0天</span>
+                                </div>
+                            </div>
+                            <div class="profile-actions">
+                                <button class="btn btn-outline btn-sm" id="edit-profile-btn">
+                                    <i class="fas fa-edit"></i>
+                                    编辑资料
+                                </button>
+                                <button class="btn btn-outline btn-sm" id="settings-btn">
+                                    <i class="fas fa-cog"></i>
+                                    设置
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 学习统计仪表盘 -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-chart-line"></i>
+                            学习统计
+                        </h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-fire"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="streak-days">0</div>
+                                    <div class="stat-label">连续学习</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="total-hours">0h</div>
+                                    <div class="stat-label">总学习时长</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-book-open"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="knowledge-count">0</div>
+                                    <div class="stat-label">已学知识点</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-bullseye"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="accuracy-rate">0%</div>
+                                    <div class="stat-label">正确率</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 成就系统 -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-trophy"></i>
+                            成就徽章
+                        </h3>
+                        <div class="achievements-grid">
+                            <div class="achievement-card locked">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <div class="achievement-info">
+                                    <h4>初学者</h4>
+                                    <p>完成第一个知识点</p>
+                                </div>
+                                <div class="achievement-progress">
+                                    <span>0/1</span>
+                                </div>
+                            </div>
+                            <div class="achievement-card locked">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-fire-alt"></i>
+                                </div>
+                                <div class="achievement-info">
+                                    <h4>连续7天</h4>
+                                    <p>连续学习7天</p>
+                                </div>
+                                <div class="achievement-progress">
+                                    <span>0/7</span>
+                                </div>
+                            </div>
+                            <div class="achievement-card locked">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-brain"></i>
+                                </div>
+                                <div class="achievement-info">
+                                    <h4>知识达人</h4>
+                                    <p>掌握100个知识点</p>
+                                </div>
+                                <div class="achievement-progress">
+                                    <span>0/100</span>
+                                </div>
+                            </div>
+                            <div class="achievement-card locked">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-medal"></i>
+                                </div>
+                                <div class="achievement-info">
+                                    <h4>完美主义者</h4>
+                                    <p>单次测试100%正确</p>
+                                </div>
+                                <div class="achievement-progress">
+                                    <span>未达成</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 学习数据可视化 -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-chart-area"></i>
+                            学习分析
+                        </h3>
+                        <div class="charts-grid">
+                            <div class="chart-card">
+                                <h4>最近7天学习时长</h4>
+                                <div class="chart-container">
+                                    <canvas id="weekly-chart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h4>知识点掌握分布</h4>
+                                <div class="chart-container">
+                                    <canvas id="mastery-chart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 学习建议 -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-lightbulb"></i>
+                            今日建议
+                        </h3>
+                        <div class="suggestions-card">
+                            <div class="suggestion-item priority-high">
+                                <div class="suggestion-icon">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </div>
+                                <div class="suggestion-content">
+                                    <h4>复习待巩固知识点</h4>
+                                    <p>您有3个知识点需要复习，建议优先复习</p>
+                                </div>
+                                <button class="btn btn-primary btn-sm">开始复习</button>
+                            </div>
+                            <div class="suggestion-item priority-medium">
+                                <div class="suggestion-icon">
+                                    <i class="fas fa-book"></i>
+                                </div>
+                                <div class="suggestion-content">
+                                    <h4>学习新知识点</h4>
+                                    <p>今天可以学习2-3个新的知识点</p>
+                                </div>
+                                <button class="btn btn-outline btn-sm">开始学习</button>
+                            </div>
+                            <div class="suggestion-item priority-low">
+                                <div class="suggestion-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="suggestion-content">
+                                    <h4>做练习测试</h4>
+                                    <p>通过测试检验学习效果</p>
+                                </div>
+                                <button class="btn btn-outline btn-sm">开始测试</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 快速操作 -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-rocket"></i>
+                            快速操作
+                        </h3>
+                        <div class="quick-actions">
+                            <button class="quick-action-btn" id="quick-study-btn">
+                                <i class="fas fa-play"></i>
+                                <span>继续学习</span>
+                            </button>
+                            <button class="quick-action-btn" id="quick-quiz-btn">
+                                <i class="fas fa-question"></i>
+                                <span>随机测试</span>
+                            </button>
+                            <button class="quick-action-btn" id="quick-review-btn">
+                                <i class="fas fa-redo"></i>
+                                <span>复习模式</span>
+                            </button>
+                            <button class="quick-action-btn" id="quick-stats-btn">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>详细统计</span>
+                            </button>
                         </div>
                     </div>
                 </div>

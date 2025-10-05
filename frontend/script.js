@@ -1,6 +1,7 @@
 // 税务学习平台前端脚本
 class TaxLearningApp {
     constructor() {
+        console.log('🌸 TaxLearningApp Initializing...');
         this.API_BASE_URL = 'http://localhost:9365/api';
         this.currentPage = 'login';
         this.currentTopic = null;
@@ -15,6 +16,13 @@ class TaxLearningApp {
         this.currentUser = null;
         this.authToken = null;
 
+        // [新] 初始化会话相关属性
+        this.currentSessionMode = null;
+        this.currentSession = null;
+        this.sessionData = {};
+        this._sessionEventListeners = []; // [修复点] 初始化事件监听器数组
+        this.progressData = null; // 用于存储 /session/stats 的数据
+
         this.init();
     }
 
@@ -24,6 +32,56 @@ class TaxLearningApp {
         this.bindEvents();
         this.checkConnection();
         this.updateConnectionStatus();
+
+        // [修复点] 统一绑定所有事件处理和异步回调方法
+        this.bindAllMethods();
+    }
+
+    // [新] 创建一个集中的方法来绑定所有 'this'
+    bindAllMethods() {
+        // 核心认证与导航
+        this.handleLogin = this.handleLogin.bind(this);
+        this.handleRegister = this.handleRegister.bind(this);
+        this.handleLogout = this.handleLogout.bind(this);
+        this.switchPage = this.switchPage.bind(this);
+
+        // 页面加载
+        this.loadProgressPage = this.loadProgressPage.bind(this);
+        this.loadProfilePage = this.loadProfilePage.bind(this);
+
+        // 消息显示
+        this.showMessage = this.showMessage.bind(this);
+        this.showError = this.showError.bind(this);
+
+        // --- 会话模式核心方法绑定 ---
+        this.initSessionPage = this.initSessionPage.bind(this);
+        this.hideAllSessionViews = this.hideAllSessionViews.bind(this);
+        this.loadSessionStats = this.loadSessionStats.bind(this);
+        this.updateSessionStatsDisplay = this.updateSessionStatsDisplay.bind(this);
+        this.bindSessionEvents = this.bindSessionEvents.bind(this);
+        this.unbindSessionEvents = this.unbindSessionEvents.bind(this);
+        this.startSession = this.startSession.bind(this);
+        this.showActiveSession = this.showActiveSession.bind(this);
+        this.loadNextSessionItem = this.loadNextSessionItem.bind(this);
+        this.showKnowledgePoint = this.showKnowledgePoint.bind(this);
+        this.showKnowledgeDetails = this.showKnowledgeDetails.bind(this);
+        this.startKnowledgeQuiz = this.startKnowledgeQuiz.bind(this);
+        this.loadQuizQuestion = this.loadQuizQuestion.bind(this);
+        this.selectOption = this.selectOption.bind(this);
+        this.submitAnswer = this.submitAnswer.bind(this);
+        this.showQuizFeedback = this.showQuizFeedback.bind(this);
+        this.nextQuestion = this.nextQuestion.bind(this);
+        this.skipQuestion = this.skipQuestion.bind(this);
+        this.completeKnowledgeQuiz = this.completeKnowledgeQuiz.bind(this);
+        this.continueToNext = this.continueToNext.bind(this);
+        this.updateSessionProgress = this.updateSessionProgress.bind(this);
+        this.startSessionTimer = this.startSessionTimer.bind(this);
+        this.pauseSession = this.pauseSession.bind(this);
+        this.continueSession = this.continueSession.bind(this);
+        this.endSession = this.endSession.bind(this);
+        this.completeSession = this.completeSession.bind(this);
+        this.updateCompletionDisplay = this.updateCompletionDisplay.bind(this);
+        this.generateAchievements = this.generateAchievements.bind(this);
     }
 
     // 检查现有认证
@@ -388,6 +446,11 @@ class TaxLearningApp {
         }, 3000);
     }
 
+    // 显示错误消息（showMessage的别名）
+    showError(message) {
+        this.showMessage(message, 'error');
+    }
+
     // 设置按钮加载状态
     setButtonLoading(button, isLoading) {
         if (isLoading) {
@@ -502,8 +565,8 @@ class TaxLearningApp {
         // 页面特定逻辑
         switch(page) {
             case 'learning':
-                console.log('📚 Loading topics for learning page...');
-                this.loadTopics();
+                console.log('📚 Loading session-based learning page...');
+                this.initSessionPage();
                 break;
             case 'quiz':
                 console.log('📝 Initializing quiz page...');
@@ -512,6 +575,10 @@ class TaxLearningApp {
             case 'progress':
                 console.log('📊 Loading progress page...');
                 this.loadProgressPage();
+                break;
+            case 'profile':
+                console.log('👤 Loading profile page...');
+                this.loadProfilePage();
                 break;
         }
 
@@ -1005,7 +1072,303 @@ class TaxLearningApp {
     }
 
     initQuizPage() {
-        // 初始化练习页面，具体内容由 renderCurrentQuestion 处理
+        console.log('📝 Initializing quiz page...');
+        this.loadQuizData();
+    }
+
+    // 加载练习题目数据
+    async loadQuizData() {
+        try {
+            this.updateSyncStatus(true);
+
+            // 获取所有知识点进行练习
+            const response = await this.makeAPIRequest('/knowledge/topics');
+            if (!response.ok) throw new Error('获取知识点失败');
+
+            const data = await response.json();
+            const topicData = data.data;
+            const topics = topicData.topics || [];
+
+            if (topics.length === 0) {
+                this.showQuizMessage('暂无练习题目');
+                this.updateSyncStatus(false);
+                return;
+            }
+
+            console.log('📚 Found topics:', topics.map(t => t.name));
+
+            // 随机选择一些知识点和题目进行练习
+            await this.loadQuizQuestions(topics);
+
+        } catch (error) {
+            console.error('❌ Load quiz data failed:', error);
+            this.showQuizMessage('加载练习题目失败');
+            this.updateSyncStatus(false);
+        }
+    }
+
+    // 从知识点加载题目 - 简化版本，使用session数据
+    async loadQuizQuestions(topics) {
+        try {
+            // 直接使用session API获取包含题目的学习数据
+            const response = await fetch(`${this.API_BASE_URL}/session/start`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const sessionResponse = await response.json();
+            const sessionData = sessionResponse.data;
+            const allQuizzes = [];
+
+            // 从session数据中提取有题目的项目
+            if (sessionData.items && sessionData.items.length > 0) {
+                for (const item of sessionData.items) {
+                    if (item.quiz) {
+                        allQuizzes.push({
+                            ...item.quiz,
+                            topic: item.knowledgePoint.topic,
+                            knowledgePoint: item.knowledgePoint.sub_topic
+                        });
+                    }
+                }
+            }
+
+            console.log(`✅ Loaded ${allQuizzes.length} quizzes from session data`);
+
+            // 如果没有找到题目，创建一些示例题目
+            if (allQuizzes.length === 0) {
+                return this.createSampleQuizzes();
+            }
+
+            return allQuizzes;
+
+        } catch (error) {
+            console.warn('Failed to load session quizzes, using sample data:', error);
+            return this.createSampleQuizzes();
+        }
+    }
+
+    // 创建示例题目（当API数据不可用时）
+    createSampleQuizzes() {
+        return [
+            {
+                _id: 'sample1',
+                quizType: 'multiple_choice',
+                source: '示例题目',
+                question_text: '环境保护税的纳税人不包括以下哪项？',
+                options: [
+                    { key: 'A', text: '事业单位' },
+                    { key: 'B', text: '个人家庭' },
+                    { key: 'C', text: '私营企业' },
+                    { key: 'D', text: '国有企业' }
+                ],
+                correct_answer: ['B'],
+                explanation: '根据税法规定，政府机关、家庭、其他个人不属于环境保护税的纳税人。',
+                difficulty: 'easy',
+                topic: '环境保护税',
+                knowledgePoint: '纳税人'
+            },
+            {
+                _id: 'sample2',
+                quizType: 'multiple_choice',
+                source: '示例题目',
+                question_text: '下列哪些属于应税污染物？',
+                options: [
+                    { key: 'A', text: '二氧化硫' },
+                    { key: 'B', text: '工业噪声' },
+                    { key: 'C', text: '交通噪声' },
+                    { key: 'D', text: '危险废物' }
+                ],
+                correct_answer: ['A', 'B', 'D'],
+                explanation: '应税污染物包括大气污染物、水污染物、固体废物、噪声等四大类。但噪声仅指工业噪声，不包括交通噪声。',
+                difficulty: 'medium',
+                topic: '环境保护税',
+                knowledgePoint: '应税污染物'
+            }
+        ];
+    }
+
+    
+    // 显示练习页面消息
+    showQuizMessage(message) {
+        const quizContent = document.getElementById('quiz-content');
+        if (quizContent) {
+            quizContent.innerHTML = `
+                <div class="quiz-message">
+                    <i class="fas fa-info-circle"></i>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+    }
+
+    // 更新练习进度
+    updateQuizProgress() {
+        const questionCounter = document.getElementById('question-counter');
+        const correctRate = document.getElementById('correct-rate');
+
+        if (questionCounter) {
+            questionCounter.textContent = `${this.currentQuestionIndex + 1} / ${this.quizData.length}`;
+        }
+
+        if (correctRate && this.currentQuestionIndex > 0) {
+            const rate = Math.round((this.correctCount / this.currentQuestionIndex) * 100);
+            correctRate.textContent = `正确率: ${rate}%`;
+        }
+    }
+
+    // 更新提交按钮状态
+    updateSubmitButton() {
+        const submitBtn = document.getElementById('submit-answer-btn');
+        if (!submitBtn) return;
+
+        const selectedOptions = document.querySelectorAll('input[name="quiz-answer"]:checked');
+        submitBtn.disabled = selectedOptions.length === 0;
+    }
+
+    // 提交答案
+    submitAnswer() {
+        const selectedOptions = document.querySelectorAll('input[name="quiz-answer"]:checked');
+        if (selectedOptions.length === 0) {
+            this.showMessage('请选择答案', 'warning');
+            return;
+        }
+
+        const currentQuiz = this.quizData[this.currentQuestionIndex];
+        const userAnswers = Array.from(selectedOptions).map(option => option.value);
+        const correctAnswers = currentQuiz.correct_answer;
+
+        // 检查答案是否正确
+        const isCorrect = this.checkAnswer(userAnswers, correctAnswers);
+        if (isCorrect) {
+            this.correctCount++;
+        }
+
+        // 显示反馈
+        this.showQuizFeedback(currentQuiz, userAnswers, correctAnswers, isCorrect);
+    }
+
+    // 检查答案是否正确
+    checkAnswer(userAnswers, correctAnswers) {
+        if (userAnswers.length !== correctAnswers.length) {
+            return false;
+        }
+
+        const sortedUser = [...userAnswers].sort();
+        const sortedCorrect = [...correctAnswers].sort();
+
+        return sortedUser.every((answer, index) => answer === sortedCorrect[index]);
+    }
+
+    // 显示题目反馈
+    showQuizFeedback(quiz, userAnswers, correctAnswers, isCorrect) {
+        const feedbackDiv = document.getElementById('quiz-feedback');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const feedbackExplanation = document.getElementById('feedback-explanation');
+        const correctAnswerDiv = document.getElementById('correct-answer');
+        const correctAnswerText = document.getElementById('correct-answer-text');
+        const nextBtn = document.getElementById('next-question-btn');
+        const finishBtn = document.getElementById('finish-quiz-btn');
+
+        if (!feedbackDiv) return;
+
+        // 设置反馈内容
+        feedbackTitle.textContent = isCorrect ? '✅ 回答正确！' : '❌ 回答错误';
+        feedbackExplanation.textContent = quiz.explanation;
+
+        if (!isCorrect) {
+            correctAnswerDiv.style.display = 'block';
+            correctAnswerText.textContent = correctAnswers.join(', ');
+        } else {
+            correctAnswerDiv.style.display = 'none';
+        }
+
+        // 显示下一步按钮
+        const isLastQuestion = this.currentQuestionIndex === this.quizData.length - 1;
+        nextBtn.style.display = isLastQuestion ? 'none' : 'block';
+        finishBtn.style.display = isLastQuestion ? 'block' : 'none';
+
+        // 禁用所有选项
+        const options = document.querySelectorAll('input[name="quiz-answer"]');
+        options.forEach(option => {
+            option.disabled = true;
+        });
+
+        // 隐藏提交按钮，显示反馈
+        document.getElementById('submit-answer-btn').style.display = 'none';
+        feedbackDiv.style.display = 'block';
+
+        // 更新进度
+        this.updateQuizProgress();
+    }
+
+    // 下一题
+    nextQuestion() {
+        this.currentQuestionIndex++;
+        this.renderCurrentQuestion();
+    }
+
+    // 完成练习
+    finishQuiz() {
+        const totalQuestions = this.quizData.length;
+        const correctRate = Math.round((this.correctCount / totalQuestions) * 100);
+
+        const quizContent = document.getElementById('quiz-content');
+        if (quizContent) {
+            quizContent.innerHTML = `
+                <div class="quiz-completion">
+                    <div class="completion-header">
+                        <i class="fas fa-trophy"></i>
+                        <h3>练习完成！</h3>
+                    </div>
+                    <div class="completion-stats">
+                        <div class="stat">
+                            <span class="label">总题数</span>
+                            <span class="value">${totalQuestions}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">正确数</span>
+                            <span class="value">${this.correctCount}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">正确率</span>
+                            <span class="value">${correctRate}%</span>
+                        </div>
+                    </div>
+                    <div class="completion-actions">
+                        <button class="btn btn-primary" onclick="app.initQuizPage()">
+                            <i class="fas fa-redo"></i> 再做一次
+                        </button>
+                        <button class="btn btn-secondary" onclick="app.showPage('learning')">
+                            <i class="fas fa-book"></i> 返回学习
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 显示完成消息
+        let message = '';
+        if (correctRate >= 90) {
+            message = '🎉 表现优秀！继续保持！';
+        } else if (correctRate >= 70) {
+            message = '👍 做得不错！继续加油！';
+        } else if (correctRate >= 60) {
+            message = '💪 还有提升空间，多练习会更好！';
+        } else {
+            message = '📚 建议先学习相关知识点再练习';
+        }
+
+        setTimeout(() => {
+            this.showMessage(message, correctRate >= 70 ? 'success' : 'info');
+        }, 1000);
     }
 
     // 渲染当前题目
@@ -1113,20 +1476,28 @@ class TaxLearningApp {
 
         try {
             this.updateSyncStatus(true);
-            const response = await this.makeAPIRequest('/user/progress');
+            console.log('🔄 Loading progress data from new SRS API...');
+
+            // 使用新的 SRS API 接口
+            const response = await this.makeAPIRequest('/session/stats');
+            console.log('📊 Raw API Response:', response);
 
             if (!response.ok) throw new Error('获取进度数据失败');
 
             const data = await response.json();
-            if (data.success) {
+            console.log('📊 Parsed API Data:', data);
+
+            if (data.success && data.data) {
                 this.progressData = data.data;
+                console.log('✅ Progress data loaded successfully:', this.progressData);
                 this.renderProgressPage();
             } else {
+                console.error('❌ API returned error:', data);
                 this.showMessage('获取进度数据失败', 'error');
             }
         } catch (error) {
             console.error('加载进度数据失败:', error);
-            this.showError('加载进度数据失败');
+            this.showError('加载进度数据失败，请稍后重试');
         } finally {
             this.updateSyncStatus(false);
         }
@@ -1137,142 +1508,101 @@ class TaxLearningApp {
         const progressPage = document.getElementById('progress-page');
         if (!progressPage || !this.progressData) return;
 
-        const { statistics, topic_progress, learning_progress, quiz_history, nickname } = this.progressData;
+        console.log('🎨 Rendering progress page with data:', this.progressData);
 
-        // 计算主题进度百分比
-        const topicProgressHtml = Object.entries(topic_progress).map(([topic, progress]) => {
-            const percentage = progress.total > 0 ? Math.round((progress.learned / progress.total) * 100) : 0;
-            return `
-                <div class="progress-item">
-                    <div class="progress-header">
-                        <h4>${topic}</h4>
-                        <span class="progress-percentage">${percentage}%</span>
+        // 适配新的 SRS API 数据结构
+        const { overall, today, streak } = this.progressData;
+        const nickname = this.currentUser?.nickname || '用户';
+
+        // 使用新的 SRS 数据结构来显示进度
+        const totalLearned = overall.new + overall.learning + overall.learned + overall.mastered;
+        const totalProgress = totalLearned > 0 ? Math.round((overall.learned + overall.mastered) / totalLearned * 100) : 0;
+
+        // 构建统计数据展示
+        const statsHtml = `
+            <div class="stats-overview">
+                <div class="stat-card">
+                    <div class="stat-number">${totalLearned}</div>
+                    <div class="stat-label">已学知识点</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${overall.accuracy}%</div>
+                    <div class="stat-label">正确率</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${streak}</div>
+                    <div class="stat-label">连续天数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${today.reviews}</div>
+                    <div class="stat-label">今日复习</div>
+                </div>
+            </div>
+        `;
+
+        // 学习状态分布
+        const statusDistribution = `
+            <div class="status-distribution">
+                <div class="status-item">
+                    <div class="status-color new"></div>
+                    <span>新学: ${overall.new}</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-color learning"></div>
+                    <span>学习中: ${overall.learning}</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-color learned"></div>
+                    <span>已掌握: ${overall.learned}</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-color mastered"></div>
+                    <span>已精通: ${overall.mastered}</span>
+                </div>
+            </div>
+        `;
+
+        // 今日复习统计
+        const todayStatsHtml = `
+            <div class="today-stats">
+                <h4>📅 今日学习</h4>
+                <div class="today-progress">
+                    <div class="progress-item">
+                        <span>复习完成</span>
+                        <span>${today.correct}/${today.reviews}</span>
                     </div>
                     <div class="progress-bar-container">
-                        <div class="progress-bar-fill" style="width: ${percentage}%"></div>
-                    </div>
-                    <div class="progress-stats">
-                        <span>${progress.learned} / ${progress.total} 已学</span>
+                        <div class="progress-bar-fill" style="width: ${today.accuracy}%"></div>
                     </div>
                 </div>
-            `;
-        }).join('');
-
-        // 获取最近学习记录
-        const recentLearning = learning_progress
-            .sort((a, b) => new Date(b.last_studied_at) - new Date(a.last_studied_at))
-            .slice(0, 5);
-
-        const recentLearningHtml = recentLearning.map(progress => {
-            const date = new Date(progress.last_studied_at).toLocaleDateString('zh-CN');
-            return `
-                <div class="recent-item">
-                    <div class="recent-date">${date}</div>
-                    <div class="recent-status ${progress.status}">
-                        <i class="fas fa-${progress.status === 'learned' ? 'check-circle' : 'clock'}"></i>
-                        ${progress.status === 'learned' ? '已学' : '学习中'}
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // 获取最近答题记录
-        const recentQuizzes = quiz_history
-            .sort((a, b) => new Date(b.attempted_at) - new Date(a.attempted_at))
-            .slice(0, 5);
-
-        const recentQuizzesHtml = recentQuizzes.map(quiz => {
-            const date = new Date(quiz.attempted_at).toLocaleDateString('zh-CN');
-            return `
-                <div class="recent-item">
-                    <div class="recent-date">${date}</div>
-                    <div class="recent-status ${quiz.is_correct ? 'correct' : 'incorrect'}">
-                        <i class="fas fa-${quiz.is_correct ? 'check' : 'times'}"></i>
-                        ${quiz.is_correct ? '正确' : '错误'}
-                    </div>
-                </div>
-            `;
-        }).join('');
+            </div>
+        `;
 
         progressPage.innerHTML = `
             <div class="progress-container">
                 <div class="progress-header">
-                    <h2><i class="fas fa-chart-line"></i> 学习进度统计</h2>
+                    <h2><i class="fas fa-chart-line"></i> 🌸 学习进度统计 🌸</h2>
                     <div class="user-info">
                         <span class="user-name">${nickname}</span>
-                        <span class="last-update">最后更新: ${new Date(this.progressData.last_updated).toLocaleString('zh-CN')}</span>
+                        <span class="last-update">最后更新: ${new Date().toLocaleString('zh-CN')}</span>
                     </div>
                 </div>
 
                 <!-- 总体统计 -->
                 <div class="statistics-section">
                     <h3>📊 总体学习情况</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-graduation-cap"></i>
-                            </div>
-                            <div class="stat-content">
-                                <div class="stat-number">${statistics.total_learned}</div>
-                                <div class="stat-label">已学知识点</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-tasks"></i>
-                            </div>
-                            <div class="stat-content">
-                                <div class="stat-number">${statistics.total_quizzes}</div>
-                                <div class="stat-label">总答题数</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <div class="stat-content">
-                                <div class="stat-number">${statistics.correct_quizzes}</div>
-                                <div class="stat-label">正确答题</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-percentage"></i>
-                            </div>
-                            <div class="stat-content">
-                                <div class="stat-number">${statistics.quiz_accuracy}%</div>
-                                <div class="stat-label">总正确率</div>
-                            </div>
-                        </div>
-                    </div>
+                    ${statsHtml}
                 </div>
 
-                <!-- 主题进度 -->
-                <div class="topic-progress-section">
-                    <h3>📚 主题学习进度</h3>
-                    <div class="topic-progress-list">
-                        ${topicProgressHtml || '<p class="no-data">暂无主题进度数据</p>'}
-                    </div>
+                <!-- 学习状态分布 -->
+                <div class="status-section">
+                    <h3>🎯 学习状态分布</h3>
+                    ${statusDistribution}
                 </div>
 
-                <!-- 最近活动 -->
-                <div class="recent-activity-section">
-                    <div class="activity-tabs">
-                        <button class="tab-btn active" onclick="app.switchProgressTab('learning')">
-                            <i class="fas fa-book"></i> 最近学习
-                        </button>
-                        <button class="tab-btn" onclick="app.switchProgressTab('quizzes')">
-                            <i class="fas fa-clipboard-check"></i> 最近答题
-                        </button>
-                    </div>
-                    <div class="activity-content">
-                        <div id="learning-tab" class="tab-content active">
-                            ${recentLearningHtml || '<p class="no-data">暂无学习记录</p>'}
-                        </div>
-                        <div id="quizzes-tab" class="tab-content">
-                            ${recentQuizzesHtml || '<p class="no-data">暂无答题记录</p>'}
-                        </div>
-                    </div>
+                <!-- 今日统计 -->
+                <div class="today-section">
+                    ${todayStatsHtml}
                 </div>
 
                 <!-- 学习建议 -->
@@ -1284,7 +1614,8 @@ class TaxLearningApp {
                 </div>
             </div>
         `;
-    }
+
+  }
 
     // 更新提交按钮状态
     updateSubmitButton() {
@@ -1460,19 +1791,28 @@ class TaxLearningApp {
     }
 
     // 生成学习建议
-    generateLearningSuggestions(progressData) {
+    generateLearningSuggestions() {
+        if (!this.progressData) {
+            console.log('⚠️ No progress data available for suggestions');
+            return '<p class="no-data">暂无足够数据生成学习建议</p>';
+        }
+
+        console.log('💡 Generating suggestions from data:', this.progressData);
         const suggestions = [];
-        const { statistics, learning_progress, quiz_history } = progressData;
+        const { overall, today, streak } = this.progressData;
+
+        // 计算总学习量
+        const totalLearned = overall.new + overall.learning + overall.learned + overall.mastered;
 
         // 基于学习数量的建议
-        if (statistics.total_learned < 10) {
+        if (totalLearned < 10) {
             suggestions.push({
                 type: 'action',
                 icon: '📚',
                 title: '增加学习量',
                 description: '建议每天学习至少5个新知识点，打好基础'
             });
-        } else if (statistics.total_learned < 30) {
+        } else if (totalLearned < 30) {
             suggestions.push({
                 type: 'encouragement',
                 icon: '🌱',
@@ -1489,14 +1829,14 @@ class TaxLearningApp {
         }
 
         // 基于答题正确率的建议
-        if (statistics.quiz_accuracy < 60) {
+        if (overall.accuracy < 60) {
             suggestions.push({
                 type: 'warning',
                 icon: '⚠️',
                 title: '正确率偏低',
                 description: '建议先复习已学知识点，理解概念后再大量练习'
             });
-        } else if (statistics.quiz_accuracy < 80) {
+        } else if (overall.accuracy < 80) {
             suggestions.push({
                 type: 'improvement',
                 icon: '📈',
@@ -1512,59 +1852,1846 @@ class TaxLearningApp {
             });
         }
 
-        // 基于最近活跃度的建议
-        const recentActivity = quiz_history.slice(-5);
-        if (recentActivity.length === 0) {
+        // 基于连续学习天数的建议
+        if (streak === 0) {
             suggestions.push({
                 type: 'action',
-                icon: '🎮',
-                title: '开始练习',
-                description: '还没有练习记录，建议从简单题目开始练习'
+                icon: '🔥',
+                title: '开始连续学习',
+                description: '连续学习能够获得更好的效果，建议每天坚持学习'
             });
-        } else if (statistics.recent_accuracy < statistics.quiz_accuracy) {
+        } else if (streak < 3) {
             suggestions.push({
-                type: 'reminder',
-                icon: '🔄',
-                title: '复习巩固',
-                description: '最近正确率有所下降，建议复习之前学过的知识点'
+                type: 'encouragement',
+                icon: '🌟',
+                title: '良好开端',
+                description: `已经连续学习${streak}天了，继续保持这个好习惯！`
+            });
+        } else if (streak < 7) {
+            suggestions.push({
+                type: 'praise',
+                icon: '🏆',
+                title: '学习坚持者',
+                description: `连续学习${streak}天，您的坚持令人佩服！`
+            });
+        } else {
+            suggestions.push({
+                type: 'achievement',
+                icon: '👑',
+                title: '学习大师',
+                description: `连续学习${streak}天，您已经是真正的学习大师了！`
             });
         }
 
-        // 基于学习习惯的建议
-        const today = new Date();
-        const lastStudyDate = learning_progress.length > 0 ?
-            new Date(learning_progress[learning_progress.length - 1].last_studied_at) : null;
+        // 基于今日复习量的建议
+        if (today.reviews === 0) {
+            suggestions.push({
+                type: 'action',
+                icon: '📖',
+                title: '开始今日学习',
+                description: '今天还没有开始学习，现在就开始吧！'
+            });
+        } else if (today.reviews < 5) {
+            suggestions.push({
+                type: 'encouragement',
+                icon: '💪',
+                title: '继续努力',
+                description: `今天已完成${today.reviews}次复习，再多做一些吧！`
+            });
+        } else {
+            suggestions.push({
+                type: 'praise',
+                icon: '🎉',
+                title: '今日目标达成',
+                description: `今天已完成${today.reviews}次复习，表现非常出色！`
+            });
+        }
 
-        if (lastStudyDate) {
-            const daysSinceLastStudy = Math.floor((today - lastStudyDate) / (1000 * 60 * 60 * 24));
-            if (daysSinceLastStudy > 3) {
-                suggestions.push({
-                    type: 'reminder',
-                    icon: '⏰',
-                    title: '保持连续性',
-                    description: `已经${daysSinceLastStudy}天没有学习了，建议今天回来学习`
-                });
-            } else if (daysSinceLastStudy <= 1) {
-                suggestions.push({
-                    type: 'praise',
-                    icon: '🔥',
-                    title: '连续学习',
-                    description: '连续学习效果很好！保持这个良好习惯'
-                });
+        // 基于学习状态分布的建议
+        const newItemsCount = overall.new;
+        const reviewItemsCount = overall.todayReview;
+
+        if (newItemsCount > reviewItemsCount * 2) {
+            suggestions.push({
+                type: 'strategy',
+                icon: '⚖️',
+                title: '平衡学习与复习',
+                description: '新知识点较多，建议增加复习频率来巩固已学内容'
+            });
+        }
+
+        // 基于学习成果的建议
+        if (overall.mastered > 10) {
+            suggestions.push({
+                type: 'achievement',
+                icon: '🎓',
+                title: '知识掌握者',
+                description: '已经精通大量知识点，可以考虑进行更深入的学习'
+            });
+        }
+
+        // 渲染建议为HTML
+        if (suggestions.length === 0) {
+            return '<p class="no-data">继续保持良好的学习习惯！</p>';
+        }
+
+        // 随机打乱建议顺序，增加多样性
+        const shuffledSuggestions = suggestions.sort(() => 0.5 - Math.random());
+
+        return shuffledSuggestions.slice(0, 4).map(suggestion => `
+            <div class="suggestion-item ${suggestion.type}">
+                <div class="suggestion-icon">${suggestion.icon}</div>
+                <div class="suggestion-content">
+                    <div class="suggestion-title">${suggestion.title}</div>
+                    <div class="suggestion-description">${suggestion.description}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ==================== 个人中心页面方法 ====================
+
+    // 加载个人中心页面
+    async loadProfilePage() {
+        console.log('👤 Loading profile page...');
+        this.setLoading(true, '正在加载您的个人档案...');
+
+        try {
+            // [修复点] 调用我们刚刚在后端创建的新接口
+            const response = await this.makeAPIRequest('/user/profile');
+
+            if (!response.success || !response.data) {
+                // 如果 API 返回 success: false 或没有 data 字段
+                throw new Error(response.message || '获取个人资料失败');
+            }
+
+            // 将获取到的完整 profile 数据存起来
+            this.userProfileData = response.data;
+            console.log('✅ Profile data loaded:', this.userProfileData);
+
+            // 同时获取会话统计数据
+            let sessionStats = null;
+            try {
+                sessionStats = await this.makeAPIRequest('/session/stats');
+            } catch (sessionError) {
+                console.warn('Failed to load session stats:', sessionError);
+                sessionStats = { streak: { days: 0 }, due: { count: 0 }, mastered: { count: 0 } };
+            }
+
+            this.updateProfileUI(this.userProfileData, sessionStats);
+            this.renderProfileCharts(this.userProfileData); // 分离出图表渲染逻辑
+
+            // 绑定个人中心事件
+            this.bindProfileEvents();
+
+        } catch (error) {
+            console.error('加载个人中心失败:', error);
+            this.showError('加载个人中心失败，请稍后重试。');
+
+            // 可选：显示一个错误状态的UI，而不是空白页面
+            const profilePage = document.getElementById('profile-page');
+            if (profilePage) {
+                profilePage.innerHTML = `
+                    <div class="error-placeholder" style="text-align: center; padding: 50px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3em; color: var(--sakura-red); margin-bottom: 20px;"></i>
+                        <h3>无法加载您的个人信息</h3>
+                        <p style="color: var(--gray-600); margin: 20px 0;">网络连接异常，请稍后重试</p>
+                        <button id="retry-load-profile" class="btn btn-primary">重试</button>
+                    </div>`;
+
+                const retryBtn = document.getElementById('retry-load-profile');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => this.loadProfilePage());
+                }
+            }
+        } finally {
+            this.setLoading(false);
+        }
+    }
+
+    // 获取用户详细资料
+    async fetchUserProfile() {
+        try {
+            const response = await this.makeAPIRequest('/user/profile');
+            return response.data;
+        } catch (error) {
+            console.error('获取用户资料失败:', error);
+            // 返回默认数据
+            return {
+                nickname: this.currentUser?.nickname || '用户',
+                phone: this.currentUser?.phone || '',
+                joinDate: '2024-01-01',
+                level: 1,
+                experience: 0,
+                achievements: []
+            };
+        }
+    }
+
+    // 更新个人中心UI
+    updateProfileUI(userProfile, sessionStats) {
+        // [修复点] 从 profileData 中安全地解构数据
+        const { nickname, phone, joinDate, streak, stats, achievements, settings } = userProfile || {};
+
+        // 更新用户基本信息
+        const nicknameElement = document.getElementById('profile-nickname');
+        if (nicknameElement) {
+            nicknameElement.textContent = nickname || '税务学习者';
+        }
+
+        const phoneElement = document.getElementById('profile-phone');
+        if (phoneElement) {
+            phoneElement.textContent = this.formatPhone(phone || '');
+        }
+
+        // 更新连续学习天数
+        const streakElement = document.querySelector('.streak-days');
+        if (streakElement) {
+            streakElement.textContent = streak || 0;
+        }
+
+        // 更新加入日期
+        const joinDateElement = document.querySelector('.join-date');
+        if (joinDateElement) {
+            joinDateElement.textContent = `🌸 ${new Date(joinDate || Date.now()).toLocaleDateString()} 加入学习之旅`;
+        }
+
+        // 更新每日目标 (示例)
+        const dailyGoalProgress = 8; // 这个数据也应该来自后端
+        const dailyGoalTotal = settings?.dailyGoal || 10;
+        const goalProgressFill = document.querySelector('.goal-progress-fill');
+        if (goalProgressFill) {
+            goalProgressFill.style.width = `${(dailyGoalProgress / dailyGoalTotal) * 100}%`;
+        }
+
+        const goalText = document.querySelector('.goal-text');
+        if (goalText) {
+            goalText.textContent = `今日已完成 ${dailyGoalProgress} / ${dailyGoalTotal} 个目标`;
+        }
+
+        // 更新学习统计
+        if (stats) {
+            const totalLearnedElement = document.getElementById('total-learned');
+            if (totalLearnedElement) {
+                totalLearnedElement.textContent = stats.totalLearned || 0;
+            }
+
+            const masteredCountElement = document.getElementById('mastered-count');
+            if (masteredCountElement) {
+                masteredCountElement.textContent = stats.masteredCount || 0;
+            }
+
+            const accuracyElement = document.getElementById('accuracy-rate');
+            if (accuracyElement) {
+                accuracyElement.textContent = `${stats.accuracy || 0}%`;
             }
         }
 
-        // 添加个性化学习路径建议
-        if (statistics.total_learned >= 20 && statistics.quiz_accuracy >= 70) {
+        // 渲染徽章
+        this.renderBadges(achievements || []);
+    }
+
+    // 渲染成就徽章
+    renderBadges(achievements) {
+        const achievementsContainer = document.getElementById('achievements-list');
+        if (!achievementsContainer) return;
+
+        achievementsContainer.innerHTML = '';
+
+        const achievementIcons = {
+            'newbie': { icon: 'fas fa-seedling', text: '初学者', color: '#10B981' },
+            'streak_7': { icon: 'fas fa-fire', text: '连续7天', color: '#F59E0B' },
+            'mastered_10': { icon: 'fas fa-star', text: '掌握10个知识点', color: '#3B82F6' },
+            'mastered_50': { icon: 'fas fa-trophy', text: '掌握50个知识点', color: '#8B5CF6' },
+            'accuracy_expert': { icon: 'fas fa-bullseye', text: '精准射手', color: '#EF4444' },
+            'quiz_veteran': { icon: 'fas fa-medal', text: '答题老兵', color: '#6366F1' }
+        };
+
+        achievements.forEach(achievement => {
+            const achievementData = achievementIcons[achievement] || {
+                icon: 'fas fa-award',
+                text: achievement,
+                color: '#6B7280'
+            };
+
+            const badge = document.createElement('div');
+            badge.className = 'achievement-badge';
+            badge.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                background: linear-gradient(135deg, ${achievementData.color}20, ${achievementData.color}10);
+                border: 1px solid ${achievementData.color}40;
+                border-radius: 20px;
+                font-size: 0.875rem;
+                color: ${achievementData.color};
+            `;
+            badge.innerHTML = `
+                <i class="${achievementData.icon}"></i>
+                <span>${achievementData.text}</span>
+            `;
+            achievementsContainer.appendChild(badge);
+        });
+    }
+
+    // 渲染个人中心图表
+    renderProfileCharts(profileData) {
+        if (!profileData) return;
+
+        // 可以在这里添加图表渲染逻辑
+        // 例如：学习进度图表、答题正确率图表等
+        console.log('📊 Rendering profile charts for:', profileData);
+    }
+
+    // 格式化手机号
+    formatPhone(phone) {
+        if (!phone) return '未知';
+        return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+    }
+
+    // 更新统计数据
+    updateStatistics(sessionStats) {
+        const stats = sessionStats?.overall || {};
+
+        // 连续学习天数
+        document.getElementById('streak-days').textContent = sessionStats?.streak?.current || 0;
+
+        // 总学习时长（转换为小时）
+        const totalHours = Math.floor((stats.totalStudyTime || 0) / 3600);
+        document.getElementById('total-hours').textContent = `${totalHours}h`;
+
+        // 已学知识点数量
+        document.getElementById('knowledge-count').textContent = stats.totalKnowledgePoints || 0;
+
+        // 正确率
+        const accuracy = stats.totalQuizzes > 0
+            ? Math.round((stats.correctAnswers / stats.totalQuizzes) * 100)
+            : 0;
+        document.getElementById('accuracy-rate').textContent = `${accuracy}%`;
+    }
+
+    // 更新成就系统
+    updateAchievements(achievements, sessionStats) {
+        const stats = sessionStats?.overall || {};
+        const currentStreak = sessionStats?.streak?.current || 0;
+
+        // 定义成就条件
+        const achievementConditions = [
+            {
+                id: 'first_knowledge',
+                name: '初学者',
+                description: '完成第一个知识点',
+                icon: 'fas fa-star',
+                unlocked: stats.totalKnowledgePoints > 0,
+                progress: stats.totalKnowledgePoints > 0 ? '1/1' : '0/1'
+            },
+            {
+                id: 'streak_7',
+                name: '连续7天',
+                description: '连续学习7天',
+                icon: 'fas fa-fire-alt',
+                unlocked: currentStreak >= 7,
+                progress: `${Math.min(currentStreak, 7)}/7`
+            },
+            {
+                id: 'knowledge_master',
+                name: '知识达人',
+                description: '掌握100个知识点',
+                icon: 'fas fa-brain',
+                unlocked: stats.totalKnowledgePoints >= 100,
+                progress: `${Math.min(stats.totalKnowledgePoints, 100)}/100`
+            },
+            {
+                id: 'perfect_quiz',
+                name: '完美主义者',
+                description: '单次测试100%正确',
+                icon: 'fas fa-medal',
+                unlocked: achievements.includes('perfect_quiz'),
+                progress: achievements.includes('perfect_quiz') ? '已达成' : '未达成'
+            }
+        ];
+
+        // 渲染成就卡片
+        const achievementsGrid = document.querySelector('.achievements-grid');
+        achievementsGrid.innerHTML = achievementConditions.map(achievement => `
+            <div class="achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'}">
+                <div class="achievement-icon">
+                    <i class="${achievement.icon}"></i>
+                </div>
+                <div class="achievement-info">
+                    <h4>${achievement.name}</h4>
+                    <p>${achievement.description}</p>
+                </div>
+                <div class="achievement-progress">
+                    <span>${achievement.progress}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 初始化图表
+    initializeCharts(sessionStats) {
+        this.createWeeklyChart(sessionStats);
+        this.createMasteryChart(sessionStats);
+    }
+
+    // 创建周学习时长图表
+    createWeeklyChart(sessionStats) {
+        const ctx = document.getElementById('weekly-chart').getContext('2d');
+
+        // 生成最近7天的模拟数据
+        const weeklyData = this.generateWeeklyData(sessionStats);
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: weeklyData.labels,
+                datasets: [{
+                    label: '学习时长（分钟）',
+                    data: weeklyData.data,
+                    borderColor: '#ff8fab',
+                    backgroundColor: 'rgba(255, 139, 171, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ff6b88',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#333',
+                        bodyColor: '#666',
+                        borderColor: '#ff8fab',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            color: '#666'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#666'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 创建知识点掌握分布图表
+    createMasteryChart(sessionStats) {
+        const ctx = document.getElementById('mastery-chart').getContext('2d');
+
+        // 从会话统计中获取状态分布
+        const statusDistribution = sessionStats?.statusDistribution || {};
+
+        const chartData = [
+            { label: '新学习', value: statusDistribution.new || 0, color: '#ffc0cb' },
+            { label: '学习中', value: statusDistribution.learning || 0, color: '#ffb7c5' },
+            { label: '已掌握', value: statusDistribution.learned || 0, color: '#87ceeb' },
+            { label: '已精通', value: statusDistribution.mastered || 0, color: '#98fb98' }
+        ];
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: chartData.map(item => item.label),
+                datasets: [{
+                    data: chartData.map(item => item.value),
+                    backgroundColor: chartData.map(item => item.color),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#666',
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#333',
+                        bodyColor: '#666',
+                        borderColor: '#ff8fab',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? Math.round((context.parsed / total) * 100) : 0;
+                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    // 生成周学习数据
+    generateWeeklyData(sessionStats) {
+        const labels = [];
+        const data = [];
+        const today = new Date();
+
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - i);
+            labels.push(this.formatDate(date));
+
+            // 生成模拟数据，实际应用中应从后端获取
+            data.push(Math.floor(Math.random() * 60) + 20); // 20-80分钟
+        }
+
+        return { labels, data };
+    }
+
+    // 格式化日期
+    formatDate(date) {
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        return `${month}/${day}`;
+    }
+
+    // 生成个性化学习建议
+    generatePersonalizedSuggestions(sessionStats) {
+        const stats = sessionStats?.overall || {};
+        const suggestions = [];
+
+        // 基于学习进度生成建议
+        if (stats.newKnowledgePoints > 0) {
             suggestions.push({
-                type: 'strategy',
-                icon: '🎓',
-                title: '进阶学习',
-                description: '基础扎实，建议尝试模拟考试或综合性练习'
+                type: 'high',
+                icon: 'fas fa-exclamation-circle',
+                title: '复习待巩固知识点',
+                description: `您有${stats.newKnowledgePoints}个知识点需要复习，建议优先复习`,
+                action: 'review',
+                buttonText: '开始复习'
             });
         }
 
-        return suggestions.slice(0, 4); // 最多显示4条建议
+        if (stats.totalKnowledgePoints < 10) {
+            suggestions.push({
+                type: 'medium',
+                icon: 'fas fa-book',
+                title: '学习新知识点',
+                description: '今天可以学习2-3个新的知识点',
+                action: 'learn',
+                buttonText: '开始学习'
+            });
+        }
+
+        if (stats.totalQuizzes < 5) {
+            suggestions.push({
+                type: 'low',
+                icon: 'fas fa-chart-line',
+                title: '做练习测试',
+                description: '通过测试检验学习效果',
+                action: 'quiz',
+                buttonText: '开始测试'
+            });
+        }
+
+        // 更新建议UI
+        this.updateSuggestionsUI(suggestions);
+    }
+
+    // 更新建议UI
+    updateSuggestionsUI(suggestions) {
+        const suggestionsCard = document.querySelector('.suggestions-card');
+        suggestionsCard.innerHTML = suggestions.map(suggestion => `
+            <div class="suggestion-item priority-${suggestion.type}">
+                <div class="suggestion-icon">
+                    <i class="${suggestion.icon}"></i>
+                </div>
+                <div class="suggestion-content">
+                    <h4>${suggestion.title}</h4>
+                    <p>${suggestion.description}</p>
+                </div>
+                <button class="btn btn-${suggestion.type === 'high' ? 'primary' : 'outline'} btn-sm"
+                        data-action="${suggestion.action}">
+                    ${suggestion.buttonText}
+                </button>
+            </div>
+        `).join('');
+
+        // 绑定建议按钮事件
+        suggestionsCard.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const action = e.target.getAttribute('data-action');
+                this.handleSuggestionAction(action);
+            });
+        });
+    }
+
+    // 处理建议操作
+    handleSuggestionAction(action) {
+        switch (action) {
+            case 'review':
+                this.switchPage('progress');
+                break;
+            case 'learn':
+                this.switchPage('learning');
+                break;
+            case 'quiz':
+                this.switchPage('quiz');
+                break;
+            default:
+                console.log('未知操作:', action);
+        }
+    }
+
+    // 绑定个人中心事件
+    bindProfileEvents() {
+        // 编辑资料按钮
+        document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
+            this.showEditProfileModal();
+        });
+
+        // 设置按钮
+        document.getElementById('settings-btn')?.addEventListener('click', () => {
+            this.showSettingsModal();
+        });
+
+        // 快速操作按钮
+        document.getElementById('quick-study-btn')?.addEventListener('click', () => {
+            this.switchPage('learning');
+        });
+
+        document.getElementById('quick-quiz-btn')?.addEventListener('click', () => {
+            this.switchPage('quiz');
+        });
+
+        document.getElementById('quick-review-btn')?.addEventListener('click', () => {
+            this.switchPage('progress');
+        });
+
+        document.getElementById('quick-stats-btn')?.addEventListener('click', () => {
+            this.showMessage('详细统计功能开发中...', 'info');
+        });
+    }
+
+    // 显示编辑资料模态框
+    showEditProfileModal() {
+        this.showMessage('编辑资料功能开发中...', 'info');
+    }
+
+    // 显示设置模态框
+    showSettingsModal() {
+        this.showMessage('设置功能开发中...', 'info');
+    }
+
+    // 显示加载状态
+    showLoading(containerId) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            // 对于个人中心页面，只在profile-container内部显示加载状态
+            const profileContainer = container.querySelector('.profile-container');
+            if (profileContainer) {
+                profileContainer.innerHTML = `
+                    <div style="text-align: center; padding: 50px;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 2em; color: var(--primary-color);"></i>
+                        <p style="margin-top: 20px; color: var(--gray-600);">加载中...</p>
+                    </div>
+                `;
+            } else {
+                // 对于其他页面，直接替换整个容器内容
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 50px;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 2em; color: var(--primary-color);"></i>
+                        <p style="margin-top: 20px; color: var(--gray-600);">加载中...</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // ========================================
+    // 会话模式学习功能
+    // ========================================
+
+    // 初始化会话页面
+    async initSessionPage() {
+        console.log('🚀 Initializing session-based learning page...');
+
+        try {
+            // 隐藏所有会话界面，显示开始界面
+            this.hideAllSessionViews();
+            document.getElementById('session-start').style.display = 'flex';
+
+            // 加载会话统计数据
+            await this.loadSessionStats();
+
+            // 绑定会话事件
+            this.bindSessionEvents();
+
+        } catch (error) {
+            console.error('❌ Failed to initialize session page:', error);
+            this.showMessage('初始化学习会话失败', 'error');
+        }
+    }
+
+    // 隐藏所有会话界面
+    hideAllSessionViews() {
+        document.getElementById('session-start').style.display = 'none';
+        document.getElementById('session-active').style.display = 'none';
+        document.getElementById('session-complete').style.display = 'none';
+    }
+
+    // 加载会话统计数据
+    async loadSessionStats() {
+        try {
+            console.log('📊 Loading session statistics...');
+
+            const response = await fetch(`${this.API_BASE_URL}/session/stats`, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const stats = await response.json();
+            console.log('✅ Session stats loaded:', stats);
+
+            // 更新统计显示
+            this.updateSessionStatsDisplay(stats);
+
+        } catch (error) {
+            console.error('❌ Failed to load session stats:', error);
+            // 显示默认统计数据
+            this.updateSessionStatsDisplay({
+                streak: { days: 0 },
+                due: { count: 0 },
+                mastered: { count: 0 }
+            });
+        }
+    }
+
+    // 更新会话统计显示
+    updateSessionStatsDisplay(stats) {
+        const streakDays = document.getElementById('streak-days');
+        const dueCount = document.getElementById('due-count');
+        const masteredCount = document.getElementById('mastered-count');
+
+        if (streakDays) {
+            streakDays.textContent = `${stats.streak?.days || 0}天`;
+        }
+        if (dueCount) {
+            dueCount.textContent = stats.due?.count || 0;
+        }
+        if (masteredCount) {
+            masteredCount.textContent = stats.mastered?.count || 0;
+        }
+    }
+
+    // 绑定会话事件
+    bindSessionEvents() {
+        // 解除旧的事件监听器，避免重复绑定
+        this.unbindSessionEvents();
+
+        // 会话模式选择按钮
+        const startDailySession = document.getElementById('start-daily-session');
+        const startReviewSession = document.getElementById('start-review-session');
+        const startNewSession = document.getElementById('start-new-session');
+
+        if (startDailySession) {
+            this._sessionEventListeners.push({
+                element: startDailySession,
+                event: 'click',
+                handler: () => this.startSession('daily')
+            });
+            startDailySession.addEventListener('click', () => this.startSession('daily'));
+        }
+
+        if (startReviewSession) {
+            startReviewSession.addEventListener('click', () => this.startSession('review'));
+        }
+
+        if (startNewSession) {
+            startNewSession.addEventListener('click', () => this.startSession('new'));
+        }
+
+        // 会话控制按钮
+        const pauseSessionBtn = document.getElementById('pause-session-btn');
+        const continueSessionBtn = document.getElementById('continue-session-btn');
+        const endSessionBtn = document.getElementById('end-session-btn');
+
+        if (pauseSessionBtn) {
+            pauseSessionBtn.addEventListener('click', () => this.pauseSession());
+        }
+
+        if (continueSessionBtn) {
+            continueSessionBtn.addEventListener('click', () => this.continueSession());
+        }
+
+        if (endSessionBtn) {
+            endSessionBtn.addEventListener('click', () => this.endSession());
+        }
+
+        // 会话完成界面按钮
+        const startNewSessionBtn = document.getElementById('start-new-session-btn');
+        const viewProgressBtn = document.getElementById('view-progress-btn');
+
+        if (startNewSessionBtn) {
+            startNewSessionBtn.addEventListener('click', () => this.initSessionPage());
+        }
+
+        if (viewProgressBtn) {
+            viewProgressBtn.addEventListener('click', () => this.switchPage('progress'));
+        }
+
+        // 知识点卡片按钮
+        const showDetailsBtn = document.getElementById('show-details-btn');
+        const showQuizBtn = document.getElementById('show-quiz-btn');
+
+        if (showDetailsBtn) {
+            showDetailsBtn.addEventListener('click', () => this.showKnowledgeDetails());
+        }
+
+        if (showQuizBtn) {
+            showQuizBtn.addEventListener('click', () => this.startKnowledgeQuiz());
+        }
+
+        // 测试卡片按钮
+        const submitAnswerBtn = document.getElementById('submit-answer-btn');
+        const skipQuestionBtn = document.getElementById('skip-question-btn');
+        const nextQuestionBtn = document.getElementById('next-question-btn');
+
+        if (submitAnswerBtn) {
+            submitAnswerBtn.addEventListener('click', () => this.submitAnswer());
+        }
+
+        if (skipQuestionBtn) {
+            skipQuestionBtn.addEventListener('click', () => this.skipQuestion());
+        }
+
+        if (nextQuestionBtn) {
+            nextQuestionBtn.addEventListener('click', () => this.nextQuestion());
+        }
+    }
+
+    // 解除会话事件绑定
+    unbindSessionEvents() {
+        // 这里可以存储事件监听器引用并后续移除，简化处理
+    }
+
+    // 开始学习会话
+    async startSession(mode) {
+        console.log(`🚀 Starting ${mode} session...`);
+
+        try {
+            this.currentSessionMode = mode;
+            this.sessionStartTime = Date.now();
+            this.sessionData = {
+                completed: 0,
+                correct: 0,
+                total: 0
+            };
+
+            // 调用后端API开始会话
+            const response = await fetch(`${this.API_BASE_URL}/session/start`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const sessionResponse = await response.json();
+            console.log('✅ Session started:', sessionResponse);
+
+            this.currentSession = sessionResponse.data;
+            this.sessionData.total = sessionResponse.data.items?.length || 0;
+
+            // 切换到会话进行界面
+            this.showActiveSession();
+
+            // 开始第一个学习项目
+            this.loadNextSessionItem();
+
+            // 启动会话计时器
+            this.startSessionTimer();
+
+        } catch (error) {
+            console.error('❌ Failed to start session:', error);
+            this.showMessage('开始学习会话失败', 'error');
+        }
+    }
+
+    // 显示活跃会话界面
+    showActiveSession() {
+        this.hideAllSessionViews();
+        document.getElementById('session-active').style.display = 'block';
+
+        // 更新会话模式显示
+        const modeNames = {
+            'daily': '每日学习',
+            'review': '专注复习',
+            'new': '学习新知'
+        };
+
+        const modeElement = document.getElementById('current-session-mode');
+        if (modeElement) {
+            modeElement.textContent = modeNames[this.currentSessionMode] || '学习会话';
+        }
+
+        // 更新进度计数
+        this.updateSessionProgress();
+    }
+
+    // 加载下一个会话项目
+    async loadNextSessionItem() {
+        if (!this.currentSession || !this.currentSession.items || this.sessionData.completed >= this.currentSession.items.length) {
+            // 会话完成
+            this.completeSession();
+            return;
+        }
+
+        const currentItem = this.currentSession.items[this.sessionData.completed];
+        console.log('📚 Loading session item:', currentItem);
+
+        try {
+            // 直接使用API返回的完整数据，不再需要单独获取知识点详情
+            const knowledgePoint = currentItem.knowledgePoint;
+            console.log('✅ Knowledge point data:', knowledgePoint);
+
+            // 设置当前进度ID，用于答案提交
+            this.currentProgressId = currentItem.progressId;
+            this.currentLearningStage = currentItem.learningStage;
+
+            // 如果有题目，直接进入答题模式
+            if (currentItem.quiz) {
+                console.log('🎯 Quiz available, starting quiz mode');
+                this.startQuizWithQuestion(currentItem.quiz, knowledgePoint, currentItem.srsData);
+            } else {
+                console.log('📚 No quiz available, showing knowledge point');
+                // 显示知识点（学习模式）
+                this.showKnowledgePoint(knowledgePoint, currentItem.srsData.status);
+            }
+
+        } catch (error) {
+            console.error('❌ Failed to load session item:', error);
+            this.showMessage('加载学习项目失败', 'error');
+            // 跳过这个项目
+            this.sessionData.completed++;
+            this.loadNextSessionItem();
+        }
+    }
+
+    // 使用API返回的题目直接开始答题
+    startQuizWithQuestion(quiz, knowledgePoint, srsData) {
+        console.log('🎯 Starting quiz with question:', quiz);
+
+        // 设置当前题目数据
+        this.currentQuizzes = [quiz]; // 包装成数组以复用现有逻辑
+        this.currentQuizIndex = 0;
+        this.currentQuizAnswers = [];
+        this.currentKnowledgePoint = knowledgePoint;
+
+        // 切换到答题界面
+        this.showActiveSession();
+        document.getElementById('knowledge-card').style.display = 'none';
+        document.getElementById('quiz-card').style.display = 'block';
+
+        // 加载题目
+        this.loadQuizQuestion();
+    }
+
+    // 显示知识点
+    showKnowledgePoint(knowledgePoint, status) {
+        // 隐藏测试卡片，显示知识点卡片
+        document.getElementById('knowledge-card').style.display = 'block';
+        document.getElementById('quiz-card').style.display = 'none';
+
+        // 更新知识点内容
+        const titleElement = document.getElementById('knowledge-title');
+        const contentElement = document.getElementById('content-text');
+        const topicElement = document.getElementById('card-topic');
+        const statusElement = document.getElementById('card-status');
+
+        if (titleElement) {
+            titleElement.textContent = knowledgePoint.sub_topic;
+        }
+
+        if (contentElement) {
+            contentElement.textContent = knowledgePoint.content;
+        }
+
+        if (topicElement) {
+            topicElement.textContent = knowledgePoint.topic;
+        }
+
+        if (statusElement) {
+            const statusTexts = {
+                'new': '新学习',
+                'learning': '学习中',
+                'review': '需复习',
+                'mastered': '已掌握'
+            };
+            statusElement.textContent = statusTexts[status] || '学习中';
+        }
+
+        // 隐藏详情和关键要点
+        document.getElementById('key-points').style.display = 'none';
+        document.getElementById('comparison-section').style.display = 'none';
+
+        // 重置按钮状态
+        const showDetailsBtn = document.getElementById('show-details-btn');
+        const showQuizBtn = document.getElementById('show-quiz-btn');
+
+        if (showDetailsBtn) {
+            showDetailsBtn.style.display = 'inline-flex';
+            showDetailsBtn.querySelector('i').className = 'fas fa-eye';
+        }
+
+        if (showQuizBtn) {
+            showQuizBtn.style.display = 'inline-flex';
+        }
+
+        // 存储当前知识点数据
+        this.currentKnowledgePoint = knowledgePoint;
+    }
+
+    // 显示知识点详情
+    showKnowledgeDetails() {
+        if (!this.currentKnowledgePoint) return;
+
+        const keyPointsSection = document.getElementById('key-points');
+        const comparisonSection = document.getElementById('comparison-section');
+        const showDetailsBtn = document.getElementById('show-details-btn');
+
+        // 切换显示状态
+        const isHidden = keyPointsSection.style.display === 'none';
+
+        if (isHidden) {
+            // 显示详情
+            if (this.currentKnowledgePoint.key_points && this.currentKnowledgePoint.key_points.length > 0) {
+                const keyPointsList = document.getElementById('key-points-list');
+                if (keyPointsList) {
+                    keyPointsList.innerHTML = '';
+                    this.currentKnowledgePoint.key_points.forEach(point => {
+                        const li = document.createElement('li');
+                        li.textContent = point;
+                        keyPointsList.appendChild(li);
+                    });
+                }
+                keyPointsSection.style.display = 'block';
+            }
+
+            if (this.currentKnowledgePoint.comparison) {
+                const comparisonTable = document.getElementById('comparison-table');
+                if (comparisonTable) {
+                    // 简化显示对比内容
+                    comparisonTable.innerHTML = `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <h5 style="color: var(--sakura-red); margin-bottom: 10px;">${this.currentKnowledgePoint.comparison.title}</h5>
+                                <ul style="list-style: none; padding: 0;">
+                                    ${this.currentKnowledgePoint.comparison.field1.map(item => `<li style="padding: 5px 0;">• ${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div>
+                                <h5 style="color: var(--sakura-purple); margin-bottom: 10px;">对比内容</h5>
+                                <ul style="list-style: none; padding: 0;">
+                                    ${this.currentKnowledgePoint.comparison.field2.map(item => `<li style="padding: 5px 0;">• ${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+                comparisonSection.style.display = 'block';
+            }
+
+            // 更新按钮
+            if (showDetailsBtn) {
+                showDetailsBtn.querySelector('i').className = 'fas fa-eye-slash';
+            }
+        } else {
+            // 隐藏详情
+            keyPointsSection.style.display = 'none';
+            comparisonSection.style.display = 'none';
+
+            // 更新按钮
+            if (showDetailsBtn) {
+                showDetailsBtn.querySelector('i').className = 'fas fa-eye';
+            }
+        }
+    }
+
+    // 开始知识点测试
+    async startKnowledgeQuiz() {
+        if (!this.currentKnowledgePoint) return;
+
+        try {
+            console.log('📝 Loading quiz for knowledge point...');
+
+            // 获取相关题目
+            const response = await fetch(`${this.API_BASE_URL}/knowledge/point/${this.currentKnowledgePoint._id}/quizzes`, {
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const quizzes = await response.json();
+            console.log('✅ Quizzes loaded:', quizzes);
+
+            if (quizzes.length === 0) {
+                this.showMessage('该知识点暂无测试题', 'info');
+                return;
+            }
+
+            // 开始测试
+            this.currentQuizzes = quizzes;
+            this.currentQuizIndex = 0;
+            this.currentQuizAnswers = [];
+
+            // 切换到测试界面
+            document.getElementById('knowledge-card').style.display = 'none';
+            document.getElementById('quiz-card').style.display = 'block';
+
+            // 加载第一题
+            this.loadQuizQuestion();
+
+        } catch (error) {
+            console.error('❌ Failed to load quiz:', error);
+            this.showMessage('加载测试题失败', 'error');
+        }
+    }
+
+    // 加载测试题目 - 支持多题型
+    loadQuizQuestion() {
+        if (!this.currentQuizzes || this.currentQuizIndex >= this.currentQuizzes.length) {
+            // 测试完成
+            this.completeKnowledgeQuiz();
+            return;
+        }
+
+        const quiz = this.currentQuizzes[this.currentQuizIndex];
+        console.log('📝 Loading quiz question:', quiz);
+
+        // 更新题目进度
+        const progressElement = document.getElementById('quiz-question-text');
+        if (progressElement) {
+            const quizType = this.getQuizTypeDisplayName(quiz.quizType || quiz.type || 'multiple_choice');
+            progressElement.textContent = `题目 ${this.currentQuizIndex + 1}/${this.currentQuizzes.length} (${quizType})`;
+        }
+
+        // 根据题型渲染不同的答题界面
+        this.renderQuizByType(quiz);
+
+        // 隐藏反馈和下一题按钮
+        document.getElementById('quiz-feedback').style.display = 'none';
+        document.getElementById('next-question-btn').style.display = 'none';
+        document.getElementById('submit-answer-btn').style.display = 'inline-flex';
+
+        // 重置选择状态
+        this.currentSelectedAnswer = null;
+    }
+
+    // 根据题型渲染答题界面
+    renderQuizByType(quiz) {
+        const questionElement = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+
+        // 显示题目内容
+        if (questionElement) {
+            questionElement.textContent = quiz.question_text;
+        }
+
+        // 清空选项容器
+        if (optionsContainer) {
+            optionsContainer.innerHTML = '';
+        }
+
+        // 获取题型，兼容新旧数据格式
+        const quizType = this.normalizeQuizType(quiz.quizType || quiz.type || 'multiple_choice');
+
+        console.log(`🎯 Rendering quiz type: ${quizType}`);
+
+        switch (quizType) {
+            case 'multiple_choice':
+                this.renderMultipleChoice(quiz, optionsContainer);
+                break;
+            case 'multiple_response':
+                this.renderMultipleResponse(quiz, optionsContainer);
+                break;
+            case 'true_false':
+                this.renderTrueFalse(quiz, optionsContainer);
+                break;
+            case 'fill_in_the_blank':
+                this.renderFillInTheBlank(quiz, optionsContainer);
+                break;
+            case 'recall':
+                this.renderRecallQuestion(quiz, optionsContainer);
+                break;
+            default:
+                console.warn(`Unknown quiz type: ${quizType}, defaulting to multiple choice`);
+                this.renderMultipleChoice(quiz, optionsContainer);
+        }
+    }
+
+    // 标准化题型名称
+    normalizeQuizType(type) {
+        const typeMap = {
+            'single_choice': 'multiple_choice',
+            'multiple_choice': 'multiple_response',
+            'judgment': 'true_false',
+            'fill_blank': 'fill_in_the_blank',
+            'blank': 'fill_in_the_blank'
+        };
+        return typeMap[type] || type;
+    }
+
+    // 获取题型显示名称
+    getQuizTypeDisplayName(type) {
+        const displayNames = {
+            'multiple_choice': '单选题',
+            'multiple_response': '多选题',
+            'true_false': '判断题',
+            'fill_in_the_blank': '填空题',
+            'recall': '回想题'
+        };
+        return displayNames[type] || '未知题型';
+    }
+
+    // 渲染单选题
+    renderMultipleChoice(quiz, container) {
+        if (!quiz.options || quiz.options.length === 0) {
+            container.innerHTML = '<div class="alert alert-warning">题目选项不完整</div>';
+            return;
+        }
+
+        quiz.options.forEach((option, index) => {
+            const optionElement = document.createElement('div');
+            optionElement.className = 'option-item';
+            optionElement.dataset.value = option.key;
+
+            optionElement.innerHTML = `
+                <span class="option-letter">${option.key}</span>
+                <span class="option-text">${option.text}</span>
+            `;
+
+            optionElement.addEventListener('click', () => this.selectOption(option.key));
+            container.appendChild(optionElement);
+        });
+    }
+
+    // 渲染多选题
+    renderMultipleResponse(quiz, container) {
+        if (!quiz.options || quiz.options.length === 0) {
+            container.innerHTML = '<div class="alert alert-warning">题目选项不完整</div>';
+            return;
+        }
+
+        container.innerHTML = '<div class="quiz-instruction mb-3"><i class="fas fa-info-circle"></i> 请选择所有正确答案（可多选）</div>';
+
+        quiz.options.forEach((option, index) => {
+            const optionElement = document.createElement('div');
+            optionElement.className = 'option-item checkbox-option';
+            optionElement.dataset.value = option.key;
+
+            optionElement.innerHTML = `
+                <input type="checkbox" id="option-${option.key}" value="${option.key}" class="quiz-checkbox">
+                <label for="option-${option.key}" class="checkbox-label">
+                    <span class="option-letter">${option.key}</span>
+                    <span class="option-text">${option.text}</span>
+                </label>
+            `;
+
+            const checkbox = optionElement.querySelector('input');
+            checkbox.addEventListener('change', () => this.handleMultipleSelection(option.key, checkbox.checked));
+
+            container.appendChild(optionElement);
+        });
+    }
+
+    // 渲染判断题
+    renderTrueFalse(quiz, container) {
+        const trueOption = document.createElement('div');
+        trueOption.className = 'option-item true-false-option';
+        trueOption.dataset.value = 'true';
+
+        trueOption.innerHTML = `
+            <span class="option-letter">A</span>
+            <span class="option-text">正确</span>
+        `;
+
+        const falseOption = document.createElement('div');
+        falseOption.className = 'option-item true-false-option';
+        falseOption.dataset.value = 'false';
+
+        falseOption.innerHTML = `
+            <span class="option-letter">B</span>
+            <span class="option-text">错误</span>
+        `;
+
+        trueOption.addEventListener('click', () => this.selectOption('true'));
+        falseOption.addEventListener('click', () => this.selectOption('false'));
+
+        container.appendChild(trueOption);
+        container.appendChild(falseOption);
+    }
+
+    // 渲染填空题
+    renderFillInTheBlank(quiz, container) {
+        if (!quiz.question_text) {
+            container.innerHTML = '<div class="alert alert-warning">题目内容不完整</div>';
+            return;
+        }
+
+        // 分析题目中的填空位置
+        const blankMatches = quiz.question_text.match(/\_\_(.*?)\_\_/g) ||
+                           quiz.question_text.match(/\【(.*?)\】/g) ||
+                           quiz.question_text.match(/\{(.*?)\}/g);
+
+        if (blankMatches.length === 0) {
+            container.innerHTML = '<div class="alert alert-warning">未找到填空位置</div>';
+            return;
+        }
+
+        container.innerHTML = '<div class="quiz-instruction mb-3"><i class="fas fa-edit"></i> 请在下方填空中输入答案</div>';
+
+        blankMatches.forEach((blank, index) => {
+            const blankText = blank.replace(/[\_\_\【\】\{\}]/g, '');
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'mb-3';
+
+            inputGroup.innerHTML = `
+                <label class="form-label">填空 ${index + 1}: ${blankText}</label>
+                <input type="text" class="form-control blank-input" data-blank-index="${index}"
+                       placeholder="请输入答案..." autocomplete="off">
+            `;
+
+            const input = inputGroup.querySelector('input');
+            input.addEventListener('input', () => this.updateBlankAnswer(index, input.value));
+
+            container.appendChild(inputGroup);
+        });
+
+        // 显示提示（如果有）
+        if (quiz.hint) {
+            const hintElement = document.createElement('div');
+            hintElement.className = 'alert alert-info mt-3';
+            hintElement.innerHTML = `<i class="fas fa-lightbulb"></i> 提示：${quiz.hint}`;
+            container.appendChild(hintElement);
+        }
+    }
+
+    // 渲染回想题
+    renderRecallQuestion(quiz, container) {
+        container.innerHTML = `
+            <div class="quiz-instruction mb-3">
+                <i class="fas fa-brain"></i>
+                <strong>回想题：</strong>请根据您的记忆回答下列问题
+            </div>
+            <div class="recall-answer-container">
+                <textarea class="form-control recall-textarea"
+                          placeholder="请在此输入您的答案..."
+                          rows="4"
+                          autocomplete="off"></textarea>
+                <div class="mt-2 text-muted">
+                    <small><i class="fas fa-info-circle"></i> 请详细说明您的理解和记忆</small>
+                </div>
+            </div>
+        `;
+
+        const textarea = container.querySelector('.recall-textarea');
+        textarea.addEventListener('input', () => {
+            this.currentSelectedAnswer = textarea.value;
+        });
+
+        // 显示关键词提示（如果有）
+        if (quiz.keywords && quiz.keywords.length > 0) {
+            const keywordsElement = document.createElement('div');
+            keywordsElement.className = 'mt-3';
+            keywordsElement.innerHTML = `
+                <div class="text-muted mb-2"><small>关键词提示：</small></div>
+                <div class="keyword-tags">
+                    ${quiz.keywords.map(keyword => `<span class="badge bg-secondary me-1">${keyword}</span>`).join('')}
+                </div>
+            `;
+            container.appendChild(keywordsElement);
+        }
+    }
+
+    // 处理多选题选择
+    handleMultipleSelection(value, isSelected) {
+        if (!this.currentSelectedAnswer) {
+            this.currentSelectedAnswer = [];
+        }
+
+        if (Array.isArray(this.currentSelectedAnswer)) {
+            if (isSelected) {
+                if (!this.currentSelectedAnswer.includes(value)) {
+                    this.currentSelectedAnswer.push(value);
+                }
+            } else {
+                this.currentSelectedAnswer = this.currentSelectedAnswer.filter(v => v !== value);
+            }
+        } else {
+            this.currentSelectedAnswer = isSelected ? [value] : [];
+        }
+
+        console.log('Multiple selection updated:', this.currentSelectedAnswer);
+        this.updateSubmitButtonState();
+    }
+
+    // 更新填空题答案
+    updateBlankAnswer(index, value) {
+        if (!this.currentSelectedAnswer) {
+            this.currentSelectedAnswer = [];
+        }
+
+        this.currentSelectedAnswer[index] = value;
+        console.log('Blank answer updated:', this.currentSelectedAnswer);
+        this.updateSubmitButtonState();
+    }
+
+    // 更新提交按钮状态
+    updateSubmitButtonState() {
+        const submitBtn = document.getElementById('submit-answer-btn');
+        if (!submitBtn) return;
+
+        let canSubmit = false;
+
+        if (this.currentSelectedAnswer === null || this.currentSelectedAnswer === undefined) {
+            canSubmit = false;
+        } else if (Array.isArray(this.currentSelectedAnswer)) {
+            canSubmit = this.currentSelectedAnswer.some(answer => answer && answer.trim() !== '');
+        } else {
+            canSubmit = this.currentSelectedAnswer.trim() !== '';
+        }
+
+        submitBtn.disabled = !canSubmit;
+    }
+
+    // 选择选项
+    selectOption(value) {
+        // 清除之前的选择（仅对单选题）
+        document.querySelectorAll('.option-item:not(.checkbox-option)').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        // 标记当前选择
+        const selectedItem = document.querySelector(`.option-item[data-value="${value}"]:not(.checkbox-option)`);
+        if (selectedItem) {
+            selectedItem.classList.add('selected');
+            this.currentSelectedAnswer = value;
+        }
+    }
+
+    // 提交答案 - 支持多题型
+    async submitAnswer() {
+        if (!this.validateAnswer()) {
+            return;
+        }
+
+        const quiz = this.currentQuizzes[this.currentQuizIndex];
+        const normalizedAnswer = this.normalizeUserAnswer(this.currentSelectedAnswer);
+        const isCorrect = this.checkAnswerCorrectness(normalizedAnswer, quiz.correct_answer);
+
+        // 显示反馈
+        this.showQuizFeedback(isCorrect, quiz.explanation);
+
+        // 记录答案
+        this.currentQuizAnswers.push({
+            quizId: quiz._id,
+            userAnswer: normalizedAnswer,
+            isCorrect: isCorrect
+        });
+
+        // 更新会话统计
+        if (isCorrect) {
+            this.sessionData.correct++;
+        }
+
+        // 提交答案到后端
+        try {
+            await fetch(`${this.API_BASE_URL}/user/quiz-history`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    quiz_id: quiz._id,
+                    user_answer: Array.isArray(normalizedAnswer) ? normalizedAnswer : [normalizedAnswer],
+                    is_correct: isCorrect
+                })
+            });
+        } catch (error) {
+            console.error('❌ Failed to submit answer:', error);
+        }
+
+        // 显示下一题按钮
+        document.getElementById('submit-answer-btn').style.display = 'none';
+        document.getElementById('next-question-btn').style.display = 'inline-flex';
+    }
+
+    // 验证答案格式
+    validateAnswer() {
+        const quiz = this.currentQuizzes[this.currentQuizIndex];
+        const quizType = this.normalizeQuizType(quiz.quizType || quiz.type || 'multiple_choice');
+
+        if (!this.currentSelectedAnswer) {
+            let message = '请先选择一个答案';
+            if (quizType === 'fill_in_the_blank') {
+                message = '请填写答案';
+            } else if (quizType === 'recall') {
+                message = '请输入您的答案';
+            }
+            this.showMessage(message, 'warning');
+            return false;
+        }
+
+        if (Array.isArray(this.currentSelectedAnswer)) {
+            if (quizType === 'fill_in_the_blank') {
+                const hasEmptyBlanks = this.currentSelectedAnswer.some(answer => !answer || answer.trim() === '');
+                if (hasEmptyBlanks) {
+                    this.showMessage('请填写所有填空', 'warning');
+                    return false;
+                }
+            } else if (quizType === 'multiple_response') {
+                if (this.currentSelectedAnswer.length === 0) {
+                    this.showMessage('请至少选择一个答案', 'warning');
+                    return false;
+                }
+            }
+        } else if (this.currentSelectedAnswer.trim() === '') {
+            this.showMessage('答案不能为空', 'warning');
+            return false;
+        }
+
+        return true;
+    }
+
+    // 标准化用户答案格式
+    normalizeUserAnswer(answer) {
+        if (Array.isArray(answer)) {
+            return answer
+                .map(a => a && a.trim ? a.trim() : a)
+                .filter(a => a && a !== '');
+        } else {
+            const trimmed = answer && answer.trim ? answer.trim() : answer;
+            return trimmed;
+        }
+    }
+
+    // 检查答案正确性 - 支持多种题型
+    checkAnswerCorrectness(userAnswer, correctAnswer) {
+        // 如果是字符串答案（单选、判断）
+        if (typeof userAnswer === 'string' && Array.isArray(correctAnswer)) {
+            return correctAnswer.includes(userAnswer);
+        }
+
+        // 如果是数组答案（多选、填空）
+        if (Array.isArray(userAnswer) && Array.isArray(correctAnswer)) {
+            // 多选题：必须完全匹配且顺序不重要
+            if (userAnswer.length !== correctAnswer.length) {
+                return false;
+            }
+
+            const sortedUser = [...userAnswer].sort();
+            const sortedCorrect = [...correctAnswer].sort();
+
+            return sortedUser.every((answer, index) => answer === sortedCorrect[index]);
+        }
+
+        // 回想题：模糊匹配（可以后续扩展为更智能的匹配）
+        if (typeof userAnswer === 'string' && typeof correctAnswer === 'string') {
+            return userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
+        }
+
+        // 默认情况
+        return userAnswer === correctAnswer;
+    }
+
+    // 显示测试反馈
+    showQuizFeedback(isCorrect, explanation) {
+        const feedbackElement = document.getElementById('quiz-feedback');
+        const iconElement = document.getElementById('feedback-icon');
+        const textElement = document.getElementById('feedback-text');
+
+        if (feedbackElement) {
+            feedbackElement.style.display = 'flex';
+
+            if (iconElement) {
+                iconElement.className = `feedback-icon ${isCorrect ? 'correct' : 'incorrect'}`;
+                iconElement.innerHTML = isCorrect ? '<i class="fas fa-check"></i>' : '<i class="fas fa-times"></i>';
+            }
+
+            if (textElement) {
+                textElement.textContent = isCorrect ?
+                    '回答正确！太棒了！' :
+                    `回答错误。${explanation || '请继续努力！'}`;
+            }
+        }
+    }
+
+    // 下一题
+    nextQuestion() {
+        this.currentQuizIndex++;
+        this.loadQuizQuestion();
+    }
+
+    // 跳过题目
+    skipQuestion() {
+        this.currentQuizAnswers.push({
+            quizId: this.currentQuizzes[this.currentQuizIndex]._id,
+            userAnswer: null,
+            isCorrect: false,
+            skipped: true
+        });
+        this.nextQuestion();
+    }
+
+    // 完成知识点测试
+    completeKnowledgeQuiz() {
+        console.log('✅ Knowledge quiz completed');
+
+        // 计算得分
+        const totalQuestions = this.currentQuizzes.length;
+        const correctAnswers = this.currentQuizAnswers.filter(a => a.isCorrect).length;
+        const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+
+        // 显示结果
+        const scoreMessage = score >= 80 ? '优秀！' : score >= 60 ? '良好！' : '继续努力！';
+        this.showMessage(`测试完成！得分：${score}分 ${scoreMessage}`, score >= 60 ? 'success' : 'info');
+
+        // 返回知识点卡片
+        setTimeout(() => {
+            document.getElementById('quiz-card').style.display = 'none';
+            document.getElementById('knowledge-card').style.display = 'block';
+
+            // 隐藏测试按钮，显示继续按钮
+            document.getElementById('show-quiz-btn').style.display = 'none';
+
+            // 继续下一个学习项目
+            setTimeout(() => {
+                this.continueToNext();
+            }, 2000);
+        }, 2000);
+    }
+
+    // 继续下一个学习项目
+    continueToNext() {
+        this.sessionData.completed++;
+        this.updateSessionProgress();
+        this.loadNextSessionItem();
+    }
+
+    // 更新会话进度
+    updateSessionProgress() {
+        const currentElement = document.getElementById('session-current');
+        const totalElement = document.getElementById('session-total');
+        const progressElement = document.getElementById('session-progress-fill');
+
+        if (currentElement) {
+            currentElement.textContent = this.sessionData.completed + 1;
+        }
+
+        if (totalElement) {
+            totalElement.textContent = this.sessionData.total;
+        }
+
+        if (progressElement) {
+            const progress = this.sessionData.total > 0 ?
+                ((this.sessionData.completed / this.sessionData.total) * 100) : 0;
+            progressElement.style.width = `${progress}%`;
+        }
+    }
+
+    // 启动会话计时器
+    startSessionTimer() {
+        if (this.sessionTimer) {
+            clearInterval(this.sessionTimer);
+        }
+
+        this.sessionTimer = setInterval(() => {
+            const elapsed = Date.now() - this.sessionStartTime;
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+
+            const timerElement = document.getElementById('session-timer');
+            if (timerElement) {
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    // 暂停会话
+    pauseSession() {
+        if (this.sessionTimer) {
+            clearInterval(this.sessionTimer);
+            this.sessionTimer = null;
+        }
+        this.showMessage('会话已暂停', 'info');
+    }
+
+    // 继续会话
+    continueSession() {
+        this.startSessionTimer();
+        this.showMessage('会话已继续', 'info');
+    }
+
+    // 结束会话
+    endSession() {
+        if (this.sessionTimer) {
+            clearInterval(this.sessionTimer);
+            this.sessionTimer = null;
+        }
+        this.completeSession();
+    }
+
+    // 完成会话
+    async completeSession() {
+        console.log('🎉 Completing session...');
+
+        // 停止计时器
+        if (this.sessionTimer) {
+            clearInterval(this.sessionTimer);
+            this.sessionTimer = null;
+        }
+
+        // 计算会话统计
+        const sessionTime = Date.now() - this.sessionStartTime;
+        const timeSpent = Math.round(sessionTime / 60000); // 分钟
+        const pointsGained = this.sessionData.correct * 10 + this.sessionData.completed * 5;
+
+        // 更新完成界面显示
+        this.updateCompletionDisplay({
+            completed: this.sessionData.completed,
+            correct: this.sessionData.correct,
+            timeSpent: timeSpent,
+            pointsGained: pointsGained
+        });
+
+        // 切换到完成界面
+        this.hideAllSessionViews();
+        document.getElementById('session-complete').style.display = 'flex';
+
+        // 提交会话完成数据到后端
+        try {
+            await fetch(`${this.API_BASE_URL}/session/complete`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionId: this.currentSession?.sessionId,
+                    completed: this.sessionData.completed,
+                    correct: this.sessionData.correct,
+                    timeSpent: timeSpent
+                })
+            });
+        } catch (error) {
+            console.error('❌ Failed to complete session on server:', error);
+        }
+    }
+
+    // 更新完成界面显示
+    updateCompletionDisplay(stats) {
+        // 更新统计数据
+        const completedElement = document.getElementById('completed-count');
+        const correctElement = document.getElementById('correct-count');
+        const timeElement = document.getElementById('time-spent');
+        const pointsElement = document.getElementById('points-gained');
+
+        if (completedElement) completedElement.textContent = stats.completed;
+        if (correctElement) correctElement.textContent = stats.correct;
+        if (timeElement) timeElement.textContent = `${stats.timeSpent}分钟`;
+        if (pointsElement) pointsElement.textContent = stats.pointsGained;
+
+        // 生成成就徽章
+        this.generateAchievements(stats);
+    }
+
+    // 生成成就徽章
+    generateAchievements(stats) {
+        const achievements = [];
+        const achievementsContainer = document.getElementById('achievements');
+
+        if (stats.correct >= 8) {
+            achievements.push({
+                icon: 'fas fa-star',
+                text: '答题高手'
+            });
+        }
+
+        if (stats.timeSpent >= 15) {
+            achievements.push({
+                icon: 'fas fa-clock',
+                text: '专注学习'
+            });
+        }
+
+        if (stats.pointsGained >= 100) {
+            achievements.push({
+                icon: 'fas fa-trophy',
+                text: '积分达人'
+            });
+        }
+
+        if (achievementsContainer) {
+            achievementsContainer.innerHTML = '';
+            achievements.forEach(achievement => {
+                const badge = document.createElement('div');
+                badge.className = 'achievement-badge';
+                badge.innerHTML = `
+                    <i class="${achievement.icon}"></i>
+                    <span>${achievement.text}</span>
+                `;
+                achievementsContainer.appendChild(badge);
+            });
+        }
     }
 }
 
@@ -1685,49 +3812,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 添加樱花特效到全局作用域，方便调试
     window.sakuraEffect = sakuraEffect;
-});
-
-// 增强用户界面的樱花主题装饰
-document.addEventListener('DOMContentLoaded', () => {
-    // 为页面标题添加樱花装饰
-    const addSakuraDecoration = (element) => {
-        if (element && !element.querySelector('.sakura-decoration')) {
-            const decoration = document.createElement('span');
-            decoration.className = 'sakura-decoration';
-            decoration.textContent = '🌸';
-            decoration.style.position = 'absolute';
-            decoration.style.top = '-10px';
-            decoration.style.right = '-10px';
-            element.style.position = 'relative';
-            element.appendChild(decoration);
-        }
-    };
-
-    // 为所有卡片添加樱花悬停效果
-    const cards = document.querySelectorAll('.card, .overview-card, .login-card');
-    cards.forEach(card => {
-        card.addEventListener('mouseenter', () => {
-            card.classList.add('sakura-special');
-        });
-        card.addEventListener('mouseleave', () => {
-            card.classList.remove('sakura-special');
-        });
-    });
-
-    // 添加樱花主题的季节性问候
-    const seasonMessages = [
-        "🌸 春日学习，樱花盛开 🌸",
-        "📚 在樱花飘落中汲取知识 📚",
-        "💗 温柔的学习时光 💗",
-        "🌺 优雅地进步每一天 🌺"
-    ];
-
-    // 随机显示季节性消息
-    const showSeasonalMessage = () => {
-        const message = seasonMessages[Math.floor(Math.random() * seasonMessages.length)];
-        console.log(message);
-    };
-
-    // 每分钟显示一次季节性消息
-    setInterval(showSeasonalMessage, 60000);
 });

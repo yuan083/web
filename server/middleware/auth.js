@@ -15,8 +15,8 @@ const authenticateToken = (req, res, next) => {
       });
     }
 
-    // 验证token
-    const JWT_SECRET = process.env.JWT_SECRET || 'your_default_secret_key';
+    // 验证token - 使用与auth.js相同的默认值
+    const JWT_SECRET = 'tax_learning_platform_jwt_secret_key_2024_very_long_and_secure_string_for_production_use';
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err) {
         console.log(`❌ Token验证失败: ${err.message}`);
@@ -57,7 +57,7 @@ const optionalAuth = (req, res, next) => {
     }
 
     // 有token，尝试验证
-    const JWT_SECRET = process.env.JWT_SECRET || 'your_default_secret_key';
+    const JWT_SECRET = 'tax_learning_platform_jwt_secret_key_2024_very_long_and_secure_string_for_production_use';
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err) {
         // token无效，但不阻止请求继续

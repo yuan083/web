@@ -7,7 +7,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 const SALT_ROUNDS = 10; // 密码加密强度
-const JWT_SECRET = process.env.JWT_SECRET || 'your_default_secret_key'; // JWT密钥
+const JWT_SECRET = 'tax_learning_platform_jwt_secret_key_2024_very_long_and_secure_string_for_production_use'; // JWT密钥
 
 // --- API: 用户注册 ---
 // POST /api/auth/register

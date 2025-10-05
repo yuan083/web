@@ -12,6 +12,7 @@ const { connectDb, closeDb } = require('./db');
 const knowledgeRoutes = require('./routes/knowledge');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const sessionRoutes = require('./routes/session');
 
 // 创建Express应用
 const app = express();
@@ -28,6 +29,7 @@ app.use(express.urlencoded({ extended: true })); // URL编码解析
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/session', sessionRoutes);
 
 // 健康检查接口
 app.get('/health', (req, res) => {
@@ -168,6 +170,57 @@ app.get('/', (req, res) => {
             quizResults: 'array (答题结果数组)'
           }
         }
+      },
+
+      // 学习会话相关 (需要认证) - 智能间隔重复系统
+      session: {
+        start: {
+          path: '/api/session/start',
+          method: 'GET',
+          description: '开始学习会话 - 获取智能推荐的学习知识点',
+          headers: {
+            Authorization: 'Bearer <token>'
+          },
+          response: {
+            sessionId: 'string (会话ID)',
+            sessionSize: 'number (知识点数量)',
+            reviewCount: 'number (复习知识点数量)',
+            newCount: 'number (新知识点数量)',
+            items: 'array (知识点列表)'
+          }
+        },
+        submit_answer: {
+          path: '/api/session/submit-answer',
+          method: 'POST',
+          description: '提交答案并更新学习进度 - 基于SRS算法',
+          headers: {
+            Authorization: 'Bearer <token>'
+          },
+          body: {
+            progressId: 'string (进度记录ID)',
+            userPerformance: 'string (用户表现: correct_easy/correct_hard/incorrect)'
+          },
+          response: {
+            performance: 'string (用户表现)',
+            wasCorrect: 'boolean (是否正确)',
+            nextReviewDate: 'date (下次复习日期)',
+            interval: 'number (复习间隔天数)',
+            status: 'string (学习状态)'
+          }
+        },
+        stats: {
+          path: '/api/session/stats',
+          method: 'GET',
+          description: '获取学习统计信息 - 进度、连续天数、准确率等',
+          headers: {
+            Authorization: 'Bearer <token>'
+          },
+          response: {
+            overall: 'object (总体统计)',
+            today: 'object (今日统计)',
+            streak: 'number (连续学习天数)'
+          }
+        }
       }
     },
 
@@ -229,6 +282,11 @@ app.use('*', (req, res) => {
         '/api/user/progress/mark-learned (需要认证)',
         '/api/user/quiz-history (需要认证)',
         '/api/user/quiz-history/batch (需要认证)'
+      ],
+      session: [
+        '/api/session/start (需要认证)',
+        '/api/session/submit-answer (需要认证)',
+        '/api/session/stats (需要认证)'
       ]
     },
     examples: {

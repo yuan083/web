@@ -2,6 +2,7 @@ const express = require('express');
 const { getDb } = require('../db');
 const { ObjectId } = require('mongodb');
 const { authenticateToken } = require('../middleware/auth'); // 导入我们的认证中间件
+const UserProgress = require('../models/UserProgress'); // 引入 UserProgress 模型
 
 const router = express.Router();
 
@@ -314,5 +315,96 @@ function checkAnswerCorrectness(userAnswer, correctAnswer) {
 
   return sortedUser.every((answer, index) => answer === sortedCorrect[index]);
 }
+
+// --- API: 获取用户个人资料 ---
+// GET /api/user/profile
+// 获取完整的用户个人资料，包括基本信息、学习统计、成就等
+router.get('/profile', authenticateToken, async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const db = getDb();
+
+    // 1. 从数据库查找用户基本信息 (排除密码)
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(userId) },
+      { projection: { password: 0 } } // 排除密码字段
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+
+    // 2. 获取用户学习统计数据 (使用UserProgress模型)
+    const progressCollection = db.collection('user_progress');
+    const stats = await UserProgress.getUserStats(progressCollection, userId);
+
+    // 3. 获取用户的答题历史统计
+    const quizHistory = user.quiz_history || [];
+    const totalQuizAttempts = quizHistory.length;
+    const correctQuizAttempts = quizHistory.filter(q => q.is_correct).length;
+    const quizAccuracy = totalQuizAttempts > 0 ? Math.round((correctQuizAttempts / totalQuizAttempts) * 100) : 0;
+
+    // 4. 计算连续学习天数 (简化版本，可以后续优化)
+    const learningProgress = user.learning_progress || [];
+    const today = new Date();
+    const oneDayAgo = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    const recentProgress = learningProgress.filter(p =>
+      p.last_studied_at && new Date(p.last_studied_at) >= oneDayAgo
+    );
+    const streak = recentProgress.length > 0 ? 1 : 0; // 简化处理
+
+    // 5. 生成成就徽章
+    const achievements = ['newbie']; // 默认徽章
+    if (streak >= 7) achievements.push('streak_7');
+    if (stats.mastered >= 10) achievements.push('mastered_10');
+    if (stats.mastered >= 50) achievements.push('mastered_50');
+    if (quizAccuracy >= 80) achievements.push('accuracy_expert');
+    if (totalQuizAttempts >= 100) achievements.push('quiz_veteran');
+
+    // 6. 组装并返回最终的 profile 对象
+    const userProfile = {
+      id: user._id.toString(),
+      nickname: user.nickname || '税务学习者',
+      phone: user.phone,
+      joinDate: user.createdAt || new Date(), // 如果没有创建时间，使用当前时间
+      streak: streak,
+
+      // 学习统计
+      stats: {
+        totalLearned: stats.new + stats.learning + stats.learned + stats.mastered,
+        masteredCount: stats.mastered,
+        accuracy: quizAccuracy,
+        todayReview: stats.todayReview,
+        overdue: stats.overdue,
+        totalQuizzes: totalQuizAttempts,
+        correctQuizzes: correctQuizAttempts
+      },
+
+      // 成就
+      achievements: achievements,
+
+      // 学习偏好设置 (可以从用户preferences字段读取或使用默认值)
+      settings: {
+        dailyGoal: user.preferences?.daily_goal || 10,
+        theme: user.preferences?.theme || 'sakura-light',
+        notifications: user.preferences?.notification_enabled !== false
+      }
+    };
+
+    console.log(`✅ 获取用户个人资料: ${user.nickname}`);
+
+    res.json({
+      success: true,
+      data: userProfile
+    });
+
+  } catch (error) {
+    console.error('❌ 获取用户 Profile 失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器内部错误'
+    });
+  }
+});
 
 module.exports = router;
